@@ -62,7 +62,8 @@ sequelize.sync({force: true}).then(function() {
 		name: 'Jack Huang',
 		gpa: 3.9,
 		credits: 40,
-		dateOfBirth: '1989-12-17'
+		dateOfBirth: '1431679027580',
+		selfDescription: 'blablabla'
 	});
 });
 
@@ -71,52 +72,63 @@ var error = function(name, message) {
 	var err = new Error(message);
 	err.name = name;
 	return err;
-}
+};
 
 var convert = function(type, value) {
 	console.log('convert', type, value);
 
-	if(value === null || value === undefined)
+	if(value === null) {
 		return null;
-
-	switch(type) {
-		case 'string':
-		case 'text':
-		case 'enum':
-			return value;
-
-		case 'date':
-			return new Date(value).toISOString();
-
-		case 'integer':
-		case 'bigint':
-			return parseInt(value);
-
-		case 'decimal':
-		case 'float':
-			return parseFloat(value);
-
-		case 'boolean':
-			return (value.toLowerCase() === 'true');
-
-		default:
-			return value;
 	}
 
+	try {
+		switch(type) {
+			case 'string':
+			case 'text':
+			case 'enum':
+				return value;
 
-}
+			case 'date':
+				value = isNaN(value) ? value : parseInt(value);
+				return new Date(value).toISOString();
 
-var parseWhere = function(collection, q) {
+			case 'integer':
+			case 'bigint':
+				return parseInt(value);
+
+			case 'decimal':
+			case 'float':
+				return parseFloat(value);
+
+			case 'boolean':
+				return (value.toLowerCase() === 'true');
+
+			default:
+				return value;
+		}
+
+	} catch(err) {
+		//return error('ConversionError', util.format('%s %s', err.message, value));
+		return err;
+	}
+	
+
+
+};
+
+var parseSelectWhere = function(collection, selectWhere, cb) {
 	var where = {};
-	if(q) {
-		console.log('q: ', q);
-		q.split(',').map(function(condition) {
+	var select = {id: null};
+	var err = null;
+	if(selectWhere) {
+		//console.log('selectWhere: ', selectWhere);
+		selectWhere.split(',').map(function(condition) {
 			
 			console.log('cond', condition);
 
 			var operators = ['==', '!=', '~~', '!~', '>>', '!>', '<<', '!<', '>=', '<=', '<>', '><','{}'];			
 			var operator = null;
-			var elems = null;
+			var elems = [condition];
 			for(var i in operators) {
 				operator = operators[i];
 				if(condition.indexOf(operator) >= 0) {
@@ -125,37 +137,62 @@ var parseWhere = function(collection, q) {
 				}
 			}
 
-			var field = elems ? elems[0] : null;
-			var type = (field && schema[collection][field]) ? schema[collection][field].typeName : null;
+			var field = elems[0];
+			if(field === '*') {
+				for(var f in schema[collection]) {
+					select[f] = null;
+				}
+				return;
 
-			if(type) {
-				console.log('elems[1]', elems[1]);
-				var values = elems[1].split('|').map(function(value) {
-					return convert(type, value);
-				});
-
-				switch(operator) {
-					case '==': where[field] = values[0]; break;
-					case '!=': where[field] = {ne: values[0]};	break;
-					case '~~': where[field] = {like: '%' + values[0] + '%'}; break;
-					case '!~': where[field] = {notlike: '%' + values[0] + '%'}; break;
-					case '>>': where[field] = {gt: values[0]}; break;
-					case '!>': 	
-					case '<=': where[field] = {lte: values[0]}; break;
-					case '<<': where[field] = {lt: values[0]};	break;
-					case '!<': 
-					case '>=': where[field] = {gte: values[0]}; break;
-					case '<>': where[field] = {between: [values[0], values[1]]}; break;
-					case '><': where[field] = {notbetween: [values[0], values[1]]}; break;
-					case '{}': where[field] = {in: values}; break;
-					default  : where[field] = values[0];
-				}	
+			} else if(!schema[collection][field]) {
+				err = error('FieldNotFoundError', util.format('%s.%s', collection, field));
+				return;
 			}
+
+			select[field] = null;
+			if(elems[1] === undefined) {
+				return;
+			}
+
+
+			var type = schema[collection][field].typeName;
+			var values = elems[1].split('|').map(function(value) {
+				var convertedValue = convert(type, value);
+				if(convertedValue instanceof Error) {
+					err = error('ConversionError', util.format('%s.%s<%s>=%s', collection, field, type, value));
+					//err = value;
+					return null;
+				} else {
+					return convertedValue;
+				}
+				
+			});
+
+			switch(operator) {
+				case '==': where[field] = values[0]; break;
+				case '!=': where[field] = {ne: values[0]};	break;
+				case '~~': where[field] = {like: '%' + values[0] + '%'}; break;
+				case '!~': where[field] = {notlike: '%' + values[0] + '%'}; break;
+				case '>>': where[field] = {gt: values[0]}; break;
+				case '!>': 	
+				case '<=': where[field] = {lte: values[0]}; break;
+				case '<<': where[field] = {lt: values[0]};	break;
+				case '!<': 
+				case '>=': where[field] = {gte: values[0]}; break;
+				case '<>': where[field] = {between: [values[0], values[1]]}; break;
+				case '><': where[field] = {notbetween: [values[0], values[1]]}; break;
+				case '{}': where[field] = {in: values}; break;
+				default  : where[field] = values[0];
+			}	
 		});
 	}
-	console.log('where: ', where);
-	return where;
-}
+
+	//console.log('select: ', select);
+	//console.log('where: ', where);
+	//console.log('err:', err);
+
+	cb(err, select, where);
+};
 
 
 module.exports.create = function(collection, item, cb) {
@@ -173,27 +210,29 @@ module.exports.create = function(collection, item, cb) {
 }
 
 // q=[name=abc,name~def]
-module.exports.read = function(collection, id, q, cb) {
+module.exports.read = function(collection, id, selectWhere, cb) {
 	if(!model[collection]) {
 		cb(error('CollectionNotFoundError', collection));
 
 	} else if(id === '_all') {
+		parseSelectWhere(collection, selectWhere, function(err, select, where) {
+			if(err) {
+				cb(err);
+			} else {
+				model[collection].findAll({attributes: Object.keys(select), where: where}).then(function(items) {
+					cb(null, items);
 
-
-
-		//console.log('where: ', parseWhere(collection, q));
-
-		model[collection].findAll({where: parseWhere(collection, q)}).then(function(items) {
-			cb(null, items);
-
-		}, function(err){
-			cb(error(err.name, err.message));
+				}, function(err){
+					cb(error(err.name, err.message));
+				});
+			}
 		});
+
+		
 
 	} else {
 		model[collection].findOne({where:{id: id}}).then(function(item) {
 			if(!item) {
-				console.log(item);
 				cb(error('ItemNotFoundError', util.format('%s[%d]', collection, id)));
 			} else {
 				cb(null, item);

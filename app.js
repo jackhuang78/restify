@@ -23,19 +23,25 @@ app.post('/echo', function(req, res) {
 var handleError = function(err, res) {
 	switch(err.name) {
 		case 'CollectionNotFoundError':
-			res.status(404).send(util.format('Collection %s doesn\'t exist.', err.message));
+			res.status(404).type('text/plain').send(util.format('Collection %s doesn\'t exist.', err.message));
+			break;
+		case 'FieldNotFoundError':
+			res.status(404).type('text/plain').send(util.format('Field %s doesn\'t exist.', err.message));
 			break;
 		case 'ItemNotFoundError':
-			res.status(404).send(util.format('Item %s doesn\'t exist.', err.message));
+			res.status(404).type('text/plain').send(util.format('Item %s doesn\'t exist.', err.message));
+			break;
+		case 'ConversionError':
+			res.status(400).type('text/plain').send(util.format('Invalid value: %s', err.message));
 			break;
 		case 'SequelizeValidationError':
-			res.status(400).send(util.format('Constrain violation: %s.', err.message));
+			res.status(400).type('text/plain').send(util.format('Constrain violation: %s.', err.message));
 			break;
 		case 'SequelizeDatabaseError':
-			res.status(400).send(util.format('Invalid value: %s.', err.message));
+			res.status(400).type('text/plain').send(util.format('Invalid value: %s.', err.message));
 			break;
 		default:
-			res.status(500).send(util.format('Unexpected error %s: %s.\n%s', err.name, err.message, err.stack));
+			res.status(500).type('text/plain').send(util.format('Unexpected error %s: %s.\n%s', err.name, err.message, err.stack));
 	}
 }
 
