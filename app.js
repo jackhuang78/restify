@@ -20,28 +20,50 @@ app.post('/echo', function(req, res) {
 	res.status(200).send(req.body);
 });
 
+var handleError = function(err, res) {
+	switch(err.name) {
+		case 'CollectionNotFoundError':
+			res.status(404).send(util.format('Collection %s doesn\'t exist.', err.message));
+			break;
+		case 'ItemNotFoundError':
+			res.status(404).send(util.format('Item %s doesn\'t exist.', err.message));
+			break;
+		case 'SequelizeValidationError':
+			res.status(400).send(util.format('Constrain violation: %s.', err.message));
+			break;
+		case 'SequelizeDatabaseError':
+			res.status(400).send(util.format('Invalid value: %s.', err.message));
+			break;
+		default:
+			res.status(500).send(util.format('Unexpected error %s: %s.\n%s', err.name, err.message, err.stack));
+	}
+}
 
-app.post('/:table', function(req, res) {
-	
-	dao.create(req.params.table, req.body, function(err, obj) {
+app.post('/:collection', function(req, res) {
+	dao.create(req.params.collection, req.body, function(err, obj) {
 		if(err) {
-			switch(err.name) {
-				case 'TableNotFoundError':
-					res.status(404).send(util.format('Table %s doesn\'t exist.', err.message));
-					break;
-				case 'SequelizeValidationError':
-					res.status(400).send(util.format('Constrain violation: %s.', err.message));
-					break;
-				case 'SequelizeDatabaseError':
-					res.status(400).send(util.format('Invalid value: %s.', err.message));
-				default:
-					res.status(500).send(util.format('Unexpected error %s: %s.\n%s', err.name, err.message, err.stack));
-			}
-			
+			handleError(err, res);
 		} else {
 			res.status(201).json(obj);
 		}
 	});
+});
+
+app.get('/:collection/:id?', function(req, res) {
+	req.params.id = req.params.id || '_all';
+
+	dao.read(req.params.collection, req.params.id, req.query.q, function(err, obj) {
+		if(err) {
+			handleError(err, res);
+		} else {
+			res.status(200).json(obj);
+		}
+	})
+
+
+	//console.log(req.params.collection, req.params.id);
+
+	//res.status(200).send('ok');
 });
 
 // run server

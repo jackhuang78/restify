@@ -16,7 +16,7 @@
 			"type": "date"
 		},
 		"credits": {
-			"type": "int"
+			"type": "integer"
 		}, 
 		"gpa": {
 			"type": "float"
