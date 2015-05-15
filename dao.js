@@ -62,7 +62,7 @@ sequelize.sync({force: true}).then(function() {
 		name: 'Jack Huang',
 		gpa: 3.9,
 		credits: 40,
-		dateOfBirth: '1431679027580',
+		dateOfBirth: 1431679027580,
 		selfDescription: 'blablabla'
 	});
 });
@@ -108,11 +108,8 @@ var convert = function(type, value) {
 		}
 
 	} catch(err) {
-		//return error('ConversionError', util.format('%s %s', err.message, value));
 		return err;
 	}
-	
-
 
 };
 
@@ -160,7 +157,6 @@ var parseSelectWhere = function(collection, selectWhere, cb) {
 				var convertedValue = convert(type, value);
 				if(convertedValue instanceof Error) {
 					err = error('ConversionError', util.format('%s.%s<%s>=%s', collection, field, type, value));
-					//err = value;
 					return null;
 				} else {
 					return convertedValue;
@@ -209,8 +205,11 @@ module.exports.create = function(collection, item, cb) {
 	}
 }
 
-// q=[name=abc,name~def]
+
 module.exports.read = function(collection, id, selectWhere, cb) {
+	id = id || '_all';
+	selectWhere = selectWhere || '*';
+
 	if(!model[collection]) {
 		cb(error('CollectionNotFoundError', collection));
 
@@ -228,8 +227,6 @@ module.exports.read = function(collection, id, selectWhere, cb) {
 			}
 		});
 
-		
-
 	} else {
 		model[collection].findOne({where:{id: id}}).then(function(item) {
 			if(!item) {
@@ -239,7 +236,67 @@ module.exports.read = function(collection, id, selectWhere, cb) {
 			}
 
 		}, function(err){
-			cb(error(err.name, err.message));
+			cb(err);
+		});
+	}
+}
+
+module.exports.update = function(collection, id, updateItem, cb) {
+	if(!model[collection]) {
+		cb(error('CollectionNotFoundError', collection));
+	} else {
+		model[collection].findOne({where:{id: id}}).then(function(item) {
+			if(!item) {
+				cb(error('ItemNotFoundError', util.format('%s[%d]', collection, id)));
+			} else {
+				for(var field in updateItem) {
+					item[field] = updateItem[field];
+				}
+				item.save().then(function(item){
+					cb(null, {id: item.id});
+				}, function(err){
+					cb(err)
+				});
+			}
+
+		}, function(err) {
+			cb(err);
+		});
+	}
+}
+
+module.exports.delete = function(collection, id, selectWhere, cb) {
+
+	if(!model[collection]) {
+		cb(error('CollectionNotFoundError', collection));
+
+	} else if(id === '_all') {
+		parseSelectWhere(collection, selectWhere, function(err, select, where) {
+			if(err) {
+				cb(err);
+			} else {
+				model[collection].findAll({attributes: ['id'], where: where}).then(function(items) {
+					model[collection].destroy({where: where}).then(function(affected) {
+						cb(null, items);
+					}, function(err){
+						cb(err);
+					});
+				}, function(err){
+					cb(err);
+				});
+			}
+		});
+	} else {
+		model[collection].findOne({attributes: ['id'], where: {id: id}}).then(function(item) {
+			if(!item) {
+				cb(error('ItemNotFoundError', util.format('%s[%d]', collection, id)));
+			} else {
+				item.destroy().then(function() {
+					cb(null, item);
+				}, function(err) {
+					cb(err);
+				});
+			}
 		});
 	}
 }

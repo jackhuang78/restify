@@ -20,6 +20,48 @@ app.post('/echo', function(req, res) {
 	res.status(200).send(req.body);
 });
 
+
+
+app.post('/:collection', function(req, res) {
+	dao.create(req.params.collection, req.body, function(err, obj) {
+		if(err) {
+			handleError(err, res);
+		} else {
+			res.status(200).json(obj);
+		}
+	});
+});
+
+app.get('/:collection/:id?', function(req, res) {
+	dao.read(req.params.collection, req.params.id, req.query.sw, function(err, obj) {
+		if(err) {
+			handleError(err, res);
+		} else {
+			res.status(200).json(obj);
+		}
+	});
+});
+
+app.put('/:collection/:id', function(req, res) {
+	dao.update(req.params.collection, req.params.id, req.body, function(err, obj) {
+		if(err) {
+			handleError(err, res);
+		} else {
+			res.status(200).json(obj);
+		}
+	});
+});
+
+app.delete('/:collection/:id', function(req, res) {
+	dao.delete(req.params.collection, req.params.id, req.query.sw, function(err, obj) {
+		if(err) {
+			handleError(err, res);
+		} else {
+			res.status(200).json(obj);
+		}
+	});
+});
+
 var handleError = function(err, res) {
 	switch(err.name) {
 		case 'CollectionNotFoundError':
@@ -44,33 +86,6 @@ var handleError = function(err, res) {
 			res.status(500).type('text/plain').send(util.format('Unexpected error %s: %s.\n%s', err.name, err.message, err.stack));
 	}
 }
-
-app.post('/:collection', function(req, res) {
-	dao.create(req.params.collection, req.body, function(err, obj) {
-		if(err) {
-			handleError(err, res);
-		} else {
-			res.status(201).json(obj);
-		}
-	});
-});
-
-app.get('/:collection/:id?', function(req, res) {
-	req.params.id = req.params.id || '_all';
-
-	dao.read(req.params.collection, req.params.id, req.query.q, function(err, obj) {
-		if(err) {
-			handleError(err, res);
-		} else {
-			res.status(200).json(obj);
-		}
-	})
-
-
-	//console.log(req.params.collection, req.params.id);
-
-	//res.status(200).send('ok');
-});
 
 // run server
 app.listen(9000);
