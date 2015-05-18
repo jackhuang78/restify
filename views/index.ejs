@@ -52,7 +52,7 @@
 			render: function() {
 				return (
 					<li role="presentation">
-						<a role="menuitem" tabindex="-1" href="#">Item</a>
+						<a role="menuitem" tabindex="-1" href="#">{this.props.data}</a>
 					</li>
 				);
 			}	
@@ -60,30 +60,47 @@
 
 		var DropdownItemList = React.createClass({
 			render: function() {
+				var items = this.props.data.map(function(item, idx) {
+					return (
+						<DropdownItem data={item} />
+					);
+				});
 				return (
-					<ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">
-						<DropdownItem />
+					<ul className="dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">
+						{items}
 					</ul>
 				);
 			}
 		});
 
-		var DropdownBox = React.createClass({
+		var TableSelectDropdown = React.createClass({
+			getInitialState: function() {
+				return {data: []};
+			},
+			componentDidMount: function() {
+				$.get('_collections', function(data, status) {
+					if(status !== 'success') {
+						alert('Failed to load tables');
+					} else {
+						this.setState({data : data});
+					}
+				}.bind(this));
+			},
 			render: function() {
 				return (
-					<div class="dropdown">
-					  <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-expanded="true">
-					    Table
-					    <span class="caret"></span>
-					  </button>
-					  
+					<div className="dropdown">
+						<button className="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-expanded="true">
+							Table
+							<span className="caret"></span>
+						</button>
+						<DropdownItemList data={this.state.data} />
 					</div>
 				);
 			}
 		});
 
 		React.render(
-      <DropdownBox />, document.getElementById('content')
+      <TableSelectDropdown />, document.getElementById('content')
     );
     console.log('done');
 	</script>
