@@ -15,8 +15,8 @@ var log = new (winston.Logger)({
 
 
 // load database configurations
-var db = require('./database.json');
-var schema= require('./schema.json');
+var db = require('./conf/database.json');
+var schema= require('./conf/schema.json');
 
 log.info('Database %j', db, {});
 var sequelize = new Sequelize(db.database, db.user, db.password, {
@@ -266,6 +266,9 @@ module.exports.update = function(collection, id, updateItem, cb) {
 }
 
 module.exports.delete = function(collection, id, selectWhere, cb) {
+	id = id || '_all';
+	selectWhere = selectWhere || '*'
+
 
 	if(!model[collection]) {
 		cb(error('CollectionNotFoundError', collection));
@@ -299,6 +302,11 @@ module.exports.delete = function(collection, id, selectWhere, cb) {
 			}
 		});
 	}
+}
+
+module.exports._collections = function(cb) {
+	var collections = Object.keys(model);
+	cb(null, collections);
 }
 
 
