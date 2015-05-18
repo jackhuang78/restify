@@ -1,0 +1,38 @@
+{
+	"student": {
+		"name": {
+			"type": "string",
+			"allowNull": false
+		},
+		"email": {
+			"type": "string",
+			"unique": true
+		} ,
+		"gender": {
+			"type": "enum",
+			"values": ["male", "female"]
+		},
+		"dateOfBirth": {
+			"type": "date"
+		},
+		"credits": {
+			"type": "integer"
+		}, 
+		"gpa": {
+			"type": "float"
+		},
+		"graduated": {
+			"type": "boolean",
+			"defaultValue": false
+		},
+		"selfDescription": {
+			"type": "text"
+		}
+	},
+	"major": {
+		"name": {
+			"type": "string"
+		}
+	}
+}
+
