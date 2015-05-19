@@ -10,6 +10,8 @@ var dao = require('./dao.js');
 // setup server
 var app = express();
 app.use(express.static('node_modules/bootstrap/dist'));
+app.use(express.static('vendors'));
+app.use(express.static('views'));
 app.use(bodyParser.urlencoded({extended:true}))
 app.use(bodyParser.json());
 app.set('view engine', 'ejs');  
