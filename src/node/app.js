@@ -9,16 +9,18 @@ var dao = require('./dao.js');
 
 // setup server
 var app = express();
-app.use(express.static('node_modules/bootstrap/dist'));
-app.use(express.static('vendors'));
-app.use(express.static('views'));
-app.use(bodyParser.urlencoded({extended:true}))
+//app.use(express.static(__dirname));
+app.use(express.static('node_modules'));
+app.use(express.static('build'));
+app.use(express.static('src/flux'));
+app.use(bodyParser.urlencoded({extended:true}));
 app.use(bodyParser.json());
-app.set('view engine', 'ejs');  
+app.set('views', 'src/flux');
+app.set('view engine', 'ejs');
 
 
 app.get('/', function(req, res) {
-	res.render('index');
+	res.render('index', {data: {title: 'restify', script: 'index.js'}});
 });
 
 app.post('/echo', function(req, res) {
@@ -103,7 +105,7 @@ var handleError = function(err, res) {
 		default:
 			res.status(500).type('text/plain').send(util.format('Unexpected error %s: %s.\n%s', err.name, err.message, err.stack));
 	}
-}
+};
 
 // run server
 app.listen(9000);

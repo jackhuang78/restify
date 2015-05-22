@@ -15,8 +15,8 @@ var log = new (winston.Logger)({
 
 
 // load database configurations
-var db = require('./conf/database.json');
-var schema= require('./conf/schema.json');
+var db = require('../../conf/database.json');
+var schema= require('../../conf/schema.json');
 
 log.info('Database %j', db, {});
 var sequelize = new Sequelize(db.database, db.user, db.password, {
@@ -25,30 +25,31 @@ var sequelize = new Sequelize(db.database, db.user, db.password, {
 });
 console.log(schema);
 
+function toSequelizeType(type) {
+	switch(type) {
+		case 'string': 	return Sequelize.STRING;
+		case 'text': 	return Sequelize.TEXT;
+		case 'date': 	return Sequelize.DATE;
+		case 'enum': 	return Sequelize.ENUM;
+
+		case 'integer': return Sequelize.INTEGER;
+		case 'bigint': 	return Sequelize.BIGINT;
+		case 'float': 	return Sequelize.FLOAT;
+		case 'decimal': return Sequelize.DECIMAL;
+		
+		case 'boolean': return Sequelize.BOOLEAN;
+
+		default: 		return Sequelize.STRING;
+	}
+}
+
 var model = {};
 for(var table in schema) {
 	for(var field in schema[table]) {
 		
 		log.info('Creating %s.%s: %j', table, field, schema[table][field], {});
 		schema[table][field].typeName = schema[table][field].type;
-		schema[table][field].type = (function(type) {
-			switch(type) {
-				case 'string': 	return Sequelize.STRING;
-				case 'text': 	return Sequelize.TEXT;
-				case 'date': 	return Sequelize.DATE;
-				case 'enum': 	return Sequelize.ENUM;
-
-				case 'integer': return Sequelize.INTEGER;
-				case 'bigint': 	return Sequelize.BIGINT;
-				case 'float': 	return Sequelize.FLOAT;
-				case 'decimal': return Sequelize.DECIMAL;
-				
-				case 'boolean': return Sequelize.BOOLEAN;
-
-				default: 		return Sequelize.STRING;
-			}
-		})(schema[table][field].type);
-		
+		schema[table][field].type = toSequelizeType(schema[table][field].type);
 		
 		
 	}
@@ -58,7 +59,7 @@ for(var table in schema) {
 
 sequelize.sync({force: true}).then(function() {
 	console.log("DONE!");
-	model['student'].create({
+	model.student.create({
 		name: 'Jack Huang',
 		gpa: 3.9,
 		credits: 40,
@@ -203,7 +204,7 @@ module.exports.create = function(collection, item, cb) {
 			cb(error(err.name, err.message));
 		});
 	}
-}
+};
 
 
 module.exports.read = function(collection, id, selectWhere, cb) {
@@ -239,7 +240,7 @@ module.exports.read = function(collection, id, selectWhere, cb) {
 			cb(err);
 		});
 	}
-}
+};
 
 module.exports.update = function(collection, id, updateItem, cb) {
 	if(!model[collection]) {
@@ -255,7 +256,7 @@ module.exports.update = function(collection, id, updateItem, cb) {
 				item.save().then(function(item){
 					cb(null, {id: item.id});
 				}, function(err){
-					cb(err)
+					cb(err);
 				});
 			}
 
@@ -263,11 +264,11 @@ module.exports.update = function(collection, id, updateItem, cb) {
 			cb(err);
 		});
 	}
-}
+};
 
 module.exports.delete = function(collection, id, selectWhere, cb) {
 	id = id || '_all';
-	selectWhere = selectWhere || '*'
+	selectWhere = selectWhere || '*';
 
 
 	if(!model[collection]) {
@@ -302,12 +303,12 @@ module.exports.delete = function(collection, id, selectWhere, cb) {
 			}
 		});
 	}
-}
+};
 
 module.exports._collections = function(cb) {
 	var collections = Object.keys(model);
 	cb(null, collections);
-}
+};
 
 
 
