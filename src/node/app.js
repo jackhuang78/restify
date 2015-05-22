@@ -9,10 +9,8 @@ var dao = require('./dao.js');
 
 // setup server
 var app = express();
-//app.use(express.static(__dirname));
 app.use(express.static('node_modules'));
 app.use(express.static('build'));
-app.use(express.static('src/flux'));
 app.use(bodyParser.urlencoded({extended:true}));
 app.use(bodyParser.json());
 app.set('views', 'src/flux');
@@ -20,7 +18,11 @@ app.set('view engine', 'ejs');
 
 
 app.get('/', function(req, res) {
-	res.render('index', {data: {title: 'restify', script: 'index.js'}});
+	res.render('main', {react: 'IndexPage'});
+});
+
+app.get('/admin', function(req, res) {
+	res.render('main', {react: 'AdminPage'});
 });
 
 app.post('/echo', function(req, res) {

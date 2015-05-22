@@ -4,7 +4,7 @@
   "description": "REST services for SQL database",
   "main": "app.js",
   "scripts": {
-    "watch": "supervisor -w 'conf,src/node' -n exit src/node/app.js & jsx --watch -x jsx src/flux build/flux & watchify src/flux/*.js build/flux/*.js -o build/bundle.js -v -d",
+    "watch": "supervisor -w 'conf,src/node' -n exit src/node/app.js & jsx --watch -x jsx src/flux build/flux & watchify build/flux/main.js -o build/bundle.js -v -d",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Jack Huang",

@@ -1,26 +1,12 @@
 var React = require('react');
 
-var Content = React.createClass({
+var IndexPage = React.createClass({
 	render: function() {
 		return (
-			//<div>{this.props.value}</div>
-			<div>Content</div>
-		);		
-	}	
+			<div>IndexPage</div>
+		);
+	}
 });
 
-var Content2 = React.createClass({
-	render: function() {
-		return (
-			//<div>{this.props.value}</div>
-			<div>Content3</div>
-		);		
-	}	
-});
-
-React.render(
-	<Content />, document.getElementById('content')
-);
-
-
-console.log('INDEX.JSs');
+console.log('index.js'); 
+module.exports = IndexPage;
