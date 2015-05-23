@@ -2,17 +2,23 @@
 var express = require('express'),
 	util = require('util'),
 	request = require('request'),
-	bodyParser = require('body-parser');
+	bodyParser = require('body-parser'),
+	ejs = require('ejs');
 
 var dao = require('./dao.js');
 
 // setup server
 var app = express();
-app.use(bodyParser.urlencoded({extended:true}))
+app.use(express.static('node_modules'));
+app.use(express.static('build'));
+app.use(bodyParser.urlencoded({extended:true}));
 app.use(bodyParser.json());
+app.set('views', 'src/flux');
+app.set('view engine', 'ejs');
+
 
 app.get('/', function(req, res) {
-	res.status(200).send('OK');
+	res.render('main', {react: 'QueryPage'});
 });
 
 app.post('/echo', function(req, res) {
@@ -20,6 +26,16 @@ app.post('/echo', function(req, res) {
 	res.status(200).send(req.body);
 });
 
+
+app.get('/_collections', function(req, res) {
+	dao._collections(function(err, obj) {
+		if(err) {
+			handleError(err, res);
+		} else {
+			res.status(200).json(obj);
+		}
+	});
+});
 
 
 app.post('/:collection', function(req, res) {
@@ -62,6 +78,8 @@ app.delete('/:collection/:id', function(req, res) {
 	});
 });
 
+
+
 var handleError = function(err, res) {
 	switch(err.name) {
 		case 'CollectionNotFoundError':
@@ -85,7 +103,7 @@ var handleError = function(err, res) {
 		default:
 			res.status(500).type('text/plain').send(util.format('Unexpected error %s: %s.\n%s', err.name, err.message, err.stack));
 	}
-}
+};
 
 // run server
 app.listen(9000);
