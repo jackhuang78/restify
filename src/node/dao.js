@@ -310,6 +310,23 @@ module.exports._collections = function(cb) {
 	cb(null, collections);
 };
 
+module.exports._fields = function(collection, cb) {
+	if(!model[collection]) {
+		cb(error('CollectionNotFoundError', collection));
+		return;
+	}
+
+	var fields = {id: {type: 'integer'}};
+	for(var key in schema[collection]) {
+		fields[key] = {
+			type: schema[collection][key].typeName
+		};
+	}
+
+	
+	cb(null, fields);
+};
+
 
 
 /*var User = sequelize.define('User', {

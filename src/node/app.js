@@ -37,6 +37,16 @@ app.get('/_collections', function(req, res) {
 	});
 });
 
+app.get('/:collection/_fields', function(req, res) {
+	dao._fields(req.params.collection, function(err, obj) {
+		if(err) {
+			handleError(err, res);
+		} else {
+			res.status(200).json(obj);
+		}
+	});
+}); 
+
 
 app.post('/:collection', function(req, res) {
 	dao.create(req.params.collection, req.body, function(err, obj) {
