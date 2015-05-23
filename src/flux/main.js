@@ -4,13 +4,12 @@ var $ = require('jquery');
 global.jQuery = $;
 var bootstrap = require('bootstrap');
 
-// require and register React modules
-var QueryPage = require('./QueryPage');
-var components = {
-	QueryPage: QueryPage
-};
+// require React components
+var components = {};
+components.QueryPage = require('./QueryPage');
 
-// render React module
+
+// render React components
 var Component = components[$('#content').attr('react')];
 React.render(
 	<Component />, content
