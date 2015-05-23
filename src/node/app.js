@@ -18,11 +18,7 @@ app.set('view engine', 'ejs');
 
 
 app.get('/', function(req, res) {
-	res.render('main', {react: 'IndexPage'});
-});
-
-app.get('/admin', function(req, res) {
-	res.render('main', {react: 'AdminPage'});
+	res.render('main', {react: 'QueryPage'});
 });
 
 app.post('/echo', function(req, res) {
