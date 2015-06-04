@@ -16,6 +16,7 @@
     "express": "^4.12.3",
     "fixed-data-table": "^0.1.2",
     "jquery": "^2.1.4",
+    "microevent": "^1.0.0",
     "mysql": "^2.6.2",
     "npm-watch": "0.0.0",
     "react": "^0.13.3",
