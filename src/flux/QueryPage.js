@@ -10,34 +10,38 @@ var Dispatcher = require('./dispatcher');
 //============================================
 var ItemStore = function() {
 	this.items = [];
+	this.fields = {};
 
-	this.selectCollection = function(collection) {
-		console.log('select collection', collection);
-		$.get(collection, function(items, status) {
+	this.load = function(actionData) {
+		console.log('load data', actionData);
+		$.get(actionData.collection, function(items, status) {
 			if(status !== 'success') {
 				alert('Failed to load tables');
 			} else {
 				this.items = items;
+				this.fields = actionData.fields;
 				this.trigger('changed');
 			}
 		}.bind(this));		
 	};
 };
 MicroEvent.mixin(ItemStore);
-itemStore = new ItemStore();
+var itemStore = new ItemStore();
 
 
 //============================================
 //	Actions
 //============================================
-dispatchar = new Dispatcher();
-dispatchar.register(function(action) {
+var dispatcher = new Dispatcher();
+dispatcher.register(function(action) {
+	console.log('Action', action);
 	switch(action.name) {
-		case 'selectCollection':
-			itemStore.selectCollection(action.data);
+		case 'loadItems':
+			itemStore.load(action.data);
 			break;
 
 		default:
+			alert('Unknown action', action);
 	}
 });
 
@@ -47,6 +51,7 @@ dispatchar.register(function(action) {
 
 itemStore.bind('changed', function() {
 	console.log('table store changed');
+	console.log('items', itemStore.items);
 });
 
 
@@ -72,10 +77,6 @@ var TableSelect = React.createClass({
 		return {collections: [], fields: []};
 	},
 
-
-
-
-	//TODO
 	selectionChanged: function(event) {
 		
 		console.log('event', event.target.value);
@@ -83,7 +84,7 @@ var TableSelect = React.createClass({
 		
 
 		var collection = event.target.value; //collections[0];
-		$.get(collection + "/_fields", function(fields, status) {
+		$.get(collection + '/_fields', function(fields, status) {
 			if(status !== 'success') {
 				alert('Failed to load fields for ' + collection);
 				return;
@@ -91,7 +92,16 @@ var TableSelect = React.createClass({
 
 			console.log('fields', fields);
 			this.setState({
-				fields: fields
+				fields: fields,
+				initialChecked: true
+			});
+
+			dispatcher.dispatch({
+				name: 'loadItems',
+				data: {
+					collection: collection,
+					fields: fields
+				}
 			});
 
 		}.bind(this));
@@ -150,19 +160,17 @@ var TableSelect = React.createClass({
 
 var FieldSelect = React.createClass({
 	render: function() {
-		console.log('fieldSelect', this.props.fields);
 		
-
 		return (
-			<ul>
+			<div>
 				{
 					$.map(this.props.fields, function(fieldValues, fieldName) {
 						return (
 							<FieldSelectItem value={fieldName} />
 						);
-					})
+					}.bind(this))
 				}
-			</ul>
+			</div>
 		);
 	}
 });
@@ -170,8 +178,10 @@ var FieldSelect = React.createClass({
 var FieldSelectItem = React.createClass({
 	render: function() {
 		return (
-			<div className="checkbox">
-					<input type="checkbox">{this.props.value}</input>
+			<div className="checkbox" >
+				<label>
+					<input type="checkbox" key={Date.now()} defaultChecked /> {this.props.value}
+				</label>
 			</div>
 		);
 	}
@@ -179,11 +189,39 @@ var FieldSelectItem = React.createClass({
 
 
 var TableDisplay = React.createClass({
+
+	getInitialState: function() {
+		return {
+			fields: {},
+			items: []
+		};
+	},
+
+	componentDidMount: function() {
+		itemStore.bind('changed', function() {
+			console.log('table store changed');
+			console.log('items', itemStore.items);
+			this.setState({fields: itemStore.fields, items: itemStore.items});
+		}.bind(this));
+	},
+
 	render: function() {
 		return (
 
 			<table className="table table-hover">
-				<tr><th>ID</th></tr>
+				<tr>
+					{
+						$.map(this.state.fields, function(fieldValues, fieldName) {
+							console.log('header', fieldName);
+							return (
+								<th>{fieldName}</th>
+							);
+						}.bind(this))
+					}
+				</tr>
+
+				
+
 				<tr><td>1</td></tr>
 				<tr><td>2</td></tr>
 			</table>

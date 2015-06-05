@@ -66,6 +66,11 @@ sequelize.sync({force: true}).then(function() {
 		dateOfBirth: 1431679027580,
 		selfDescription: 'blablabla'
 	});
+
+	model.major.create({
+		name: 'Electrical Engineering',
+		department: "Engineering"
+	});
 });
 
 
