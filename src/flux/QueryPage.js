@@ -15,26 +15,19 @@ var ItemStore = function() {
 	this.fields = {};
 
 	this.load = function(actionData) {
-		console.log('load data', actionData);
 		$.get(actionData.collection, function(items, status) {
 			if(status !== 'success') {
 				alert('Failed to load tables');
 			} else {
 				this.fields = actionData.fields;
 
-				console.log('items', items);
-
 				items.forEach(function(item) {
-					console.log('item', item);
 					$.each(item, function(key, value) {
 						if(this.fields[key].type === 'date') {
 							item[key] = new Date(Date.parse(item[key]));
 						}
 					}.bind(this));
 				}.bind(this));
-
-
-				console.log('loaded items', items);
 
 				this.items = items;
 				
@@ -44,7 +37,6 @@ var ItemStore = function() {
 	};
 
 	this.selectionChanged = function(actionData) {
-		console.log('selectionChanged', actionData.field, actionData.selected);
 		this.fields[actionData.field].selected = actionData.selected;
 		this.trigger('selectionChanged');
 	};
@@ -58,7 +50,6 @@ var itemStore = new ItemStore();
 //============================================
 var dispatcher = new Dispatcher();
 dispatcher.register(function(action) {
-	console.log('Action', action);
 	switch(action.name) {
 		case 'loadItems':
 			itemStore.load(action.data);
@@ -72,17 +63,6 @@ dispatcher.register(function(action) {
 			alert('Unknown action', action);
 	}
 });
-
-
-
-
-
-itemStore.bind('changed', function() {
-	console.log('table store changed');
-	console.log('items', itemStore.items);
-});
-
-
 
 
 //============================================
@@ -101,24 +81,17 @@ var TableSelectItem = React.createClass({
 var TableSelect = React.createClass({
 
 	getInitialState: function() {
-		console.log('getInitialState');
 		return {collections: [], fields: []};
 	},
 
 	selectionChanged: function(event) {
 		
-		console.log('event', event.target.value);
-
-		
-
 		var collection = event.target.value; //collections[0];
 		$.get(collection + '/_fields', function(fields, status) {
 			if(status !== 'success') {
 				alert('Failed to load fields for ' + collection);
 				return;
 			}
-
-			console.log('fields', fields);
 
 			$.each(fields, function(key, value) {
 				value.selected = true;
@@ -139,19 +112,11 @@ var TableSelect = React.createClass({
 		}.bind(this));
 
 
-		/*console.log('mounted', $('#collectionSelect'));
-		dispatcher.dispatch({
-			name: 'selectCollection',
-			data: event.target.value
-		});*/
-		//console.log('this', event.target.value);
 	},
 
 	componentDidMount: function() {
-		console.log('componentDidMount');
 
 		$.get('_collections', function(collections, status) {
-			console.log('fetched collections');
 			
 			if(status !== 'success') {
 				alert('Failed to load tables');
@@ -170,8 +135,7 @@ var TableSelect = React.createClass({
 	
 
 	render: function() {
-		
-		console.log('render with', this.state.collections);
+	
 		return (
 			<div>
 				<select id='collectionSelect' className='form-control' onChange={this.selectionChanged} >
@@ -209,7 +173,6 @@ var FieldSelect = React.createClass({
 
 var FieldSelectItem = React.createClass({
 	onChange: function(event) {
-		console.log('changed', event.target.checked);
 		dispatcher.dispatch({
 			name: 'selectionChanged',
 			data: {
@@ -240,19 +203,15 @@ var TableDisplay = React.createClass({
 	},
 
 	itemsStoreChanged: function() {
-		console.log('table store changed');
-		console.log('items', itemStore.items);
 		this.setState({fields: itemStore.fields, items: itemStore.items});
 	},
 
 	componentDidMount: function() {
-		console.log('itemStoreChanged', this.itemsStoreChanged);
 		itemStore.bind('changed', this.itemsStoreChanged);
 		itemStore.bind('selectionChanged', this.itemsStoreChanged);
 	},
 
 	componentDidUnmount: function() {
-		console.log('unbind component');
 		itemStore.unbind('changed', this.itemsStoreChanged);
 		itemStore.unbind('selectionChanged', this.itemsStoreChanged);
 	},
@@ -277,8 +236,6 @@ var TableDisplay = React.createClass({
 			}.bind(this));	
 			return filteredItem;		
 		}.bind(this));
-
-		console.log('filteredItems', filteredItems);
 
 		return (
 			<table className="table table-hover table-striped table-condensed">
@@ -324,7 +281,6 @@ var TableDisplayRow = React.createClass({
 			<tr>
 				{
 					$.map(this.props.item, function(value, key) {
-						console.log('value is date', value instanceof Date);
 						return (
 							<td>{ value instanceof Date 
 								? dateFormat(value, 'yyyy/mm/dd')
