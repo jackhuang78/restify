@@ -20,8 +20,24 @@ var ItemStore = function() {
 			if(status !== 'success') {
 				alert('Failed to load tables');
 			} else {
-				this.items = items;
 				this.fields = actionData.fields;
+
+				console.log('items', items);
+
+				items.forEach(function(item) {
+					console.log('item', item);
+					$.each(item, function(key, value) {
+						if(this.fields[key].type === 'date') {
+							item[key] = new Date(Date.parse(item[key]));
+						}
+					}.bind(this));
+				}.bind(this));
+
+
+				console.log('loaded items', items);
+
+				this.items = items;
+				
 				this.trigger('changed');
 			}
 		}.bind(this));		
@@ -253,8 +269,11 @@ var TableDisplay = React.createClass({
 		var filteredItems = this.state.items.map(function(item) {
 			var filteredItem = {};
 			$.each(item, function(key, value) {
-				if(filteredFields[key])
+				if(filteredFields[key]) {
 					filteredItem[key] = value;
+					
+				}
+
 			}.bind(this));	
 			return filteredItem;		
 		}.bind(this));
@@ -262,7 +281,7 @@ var TableDisplay = React.createClass({
 		console.log('filteredItems', filteredItems);
 
 		return (
-			<table className="table table-hover">
+			<table className="table table-hover table-striped table-condensed">
 				<thead>
 					<TableDisplayHeader fields={filteredFields} />
 				</thead>
@@ -289,7 +308,7 @@ var TableDisplayHeader = React.createClass({
 				{ 
 					$.map(this.props.fields, function(value, key) {
 						return (
-							<td>{Case.title(key)}</td>
+							<th>{Case.title(key)}</th>
 						);
 					})
 				} 
@@ -300,15 +319,17 @@ var TableDisplayHeader = React.createClass({
 
 var TableDisplayRow = React.createClass({
 
-	
-
 	render: function() {
 		return (
 			<tr>
 				{
 					$.map(this.props.item, function(value, key) {
+						console.log('value is date', value instanceof Date);
 						return (
-							<td>{value.toString()}</td>
+							<td>{ value instanceof Date 
+								? dateFormat(value, 'yyyy/mm/dd')
+								: value.toString()
+							}</td>
 						);
 					}.bind(this))
 				}

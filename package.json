@@ -32,5 +32,9 @@
       "reactify"
     ]
   },
+  "jshintConfig": {
+    "eqnull": true,
+    "laxbreak": true
+  },
   "devDependencies": {}
 }
