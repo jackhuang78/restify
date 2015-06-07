@@ -1,6 +1,8 @@
 var React = require('react');
 var $ = require('jquery');
 var util = require('util');
+var Case = require('case');
+var dateFormat = require('dateformat');
 var MicroEvent = require('microevent');
 var Dispatcher = require('./dispatcher');
 
@@ -24,6 +26,12 @@ var ItemStore = function() {
 			}
 		}.bind(this));		
 	};
+
+	this.selectionChanged = function(actionData) {
+		console.log('selectionChanged', actionData.field, actionData.selected);
+		this.fields[actionData.field].selected = actionData.selected;
+		this.trigger('selectionChanged');
+	};
 };
 MicroEvent.mixin(ItemStore);
 var itemStore = new ItemStore();
@@ -38,6 +46,10 @@ dispatcher.register(function(action) {
 	switch(action.name) {
 		case 'loadItems':
 			itemStore.load(action.data);
+			break;
+
+		case 'selectionChanged':
+			itemStore.selectionChanged(action.data);
 			break;
 
 		default:
@@ -91,9 +103,13 @@ var TableSelect = React.createClass({
 			}
 
 			console.log('fields', fields);
+
+			$.each(fields, function(key, value) {
+				value.selected = true;
+			});
+
 			this.setState({
 				fields: fields,
-				initialChecked: true
 			});
 
 			dispatcher.dispatch({
@@ -166,7 +182,7 @@ var FieldSelect = React.createClass({
 				{
 					$.map(this.props.fields, function(fieldValues, fieldName) {
 						return (
-							<FieldSelectItem value={fieldName} />
+							<FieldSelectItem value={fieldName} selected={fieldValues.selected}/>
 						);
 					}.bind(this))
 				}
@@ -176,11 +192,21 @@ var FieldSelect = React.createClass({
 });
 
 var FieldSelectItem = React.createClass({
+	onChange: function(event) {
+		console.log('changed', event.target.checked);
+		dispatcher.dispatch({
+			name: 'selectionChanged',
+			data: {
+				field: this.props.value,
+				selected: event.target.checked
+			}
+		});
+	},
 	render: function() {
 		return (
 			<div className="checkbox" >
 				<label>
-					<input type="checkbox" key={Date.now()} defaultChecked /> {this.props.value}
+					<input type="checkbox" key={Date.now()} defaultChecked={this.props.selected} onChange={this.onChange}/> {this.props.value}
 				</label>
 			</div>
 		);
@@ -197,34 +223,96 @@ var TableDisplay = React.createClass({
 		};
 	},
 
-	componentDidMount: function() {
-		itemStore.bind('changed', function() {
-			console.log('table store changed');
-			console.log('items', itemStore.items);
-			this.setState({fields: itemStore.fields, items: itemStore.items});
-		}.bind(this));
+	itemsStoreChanged: function() {
+		console.log('table store changed');
+		console.log('items', itemStore.items);
+		this.setState({fields: itemStore.fields, items: itemStore.items});
 	},
+
+	componentDidMount: function() {
+		console.log('itemStoreChanged', this.itemsStoreChanged);
+		itemStore.bind('changed', this.itemsStoreChanged);
+		itemStore.bind('selectionChanged', this.itemsStoreChanged);
+	},
+
+	componentDidUnmount: function() {
+		console.log('unbind component');
+		itemStore.unbind('changed', this.itemsStoreChanged);
+		itemStore.unbind('selectionChanged', this.itemsStoreChanged);
+	},
+
+
+	render: function() {
+		var filteredFields = {};
+		$.each(this.state.fields, function(key, value) {
+			if(value.selected)
+				filteredFields[key] = value;
+		}.bind(this));
+
+
+		var filteredItems = this.state.items.map(function(item) {
+			var filteredItem = {};
+			$.each(item, function(key, value) {
+				if(filteredFields[key])
+					filteredItem[key] = value;
+			}.bind(this));	
+			return filteredItem;		
+		}.bind(this));
+
+		console.log('filteredItems', filteredItems);
+
+		return (
+			<table className="table table-hover">
+				<thead>
+					<TableDisplayHeader fields={filteredFields} />
+				</thead>
+
+				<tbody>
+					{
+						filteredItems.map(function(item) {
+							return (
+								<TableDisplayRow item={item} />
+							);
+						})
+					}
+				</tbody>
+
+			</table>
+		);
+	}
+});
+
+var TableDisplayHeader = React.createClass({
+	render: function() {
+		return (
+			<tr> 
+				{ 
+					$.map(this.props.fields, function(value, key) {
+						return (
+							<td>{Case.title(key)}</td>
+						);
+					})
+				} 
+			</tr>
+		);
+	}
+});
+
+var TableDisplayRow = React.createClass({
+
+	
 
 	render: function() {
 		return (
-
-			<table className="table table-hover">
-				<tr>
-					{
-						$.map(this.state.fields, function(fieldValues, fieldName) {
-							console.log('header', fieldName);
-							return (
-								<th>{fieldName}</th>
-							);
-						}.bind(this))
-					}
-				</tr>
-
-				
-
-				<tr><td>1</td></tr>
-				<tr><td>2</td></tr>
-			</table>
+			<tr>
+				{
+					$.map(this.props.item, function(value, key) {
+						return (
+							<td>{value.toString()}</td>
+						);
+					}.bind(this))
+				}
+			</tr>
 		);
 	}
 });
@@ -255,7 +343,7 @@ var QueryPage = React.createClass({
 					<div className='col-md-2'>
 						<TableSelect />
 					</div>
-					<div className='col-md-8'>
+					<div className='col-md-9'>
 						<TableDisplay />
 					</div>
 				</div>

@@ -63,8 +63,22 @@ sequelize.sync({force: true}).then(function() {
 		name: 'Jack Huang',
 		gpa: 3.9,
 		credits: 40,
-		dateOfBirth: 1431679027580,
-		selfDescription: 'blablabla'
+		dateOfBirth: new Date('1989-12-17'),
+		selfDescription: 'blablabla',
+		graduated: true,
+		gender: 'male',
+		email: 'jack.huang78@gmail.com'
+	});
+
+	model.student.create({
+		name: 'Jeff Huang',
+		gpa: 3.5,
+		credits: 45,
+		dateOfBirth: new Date('1991-09-13'),
+		selfDescription: 'hahaha',
+		graduated: true,
+		gender: 'male',
+		email: 'ymh223@nyu.edu'
 	});
 
 	model.major.create({
