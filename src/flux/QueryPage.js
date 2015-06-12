@@ -10,11 +10,83 @@ var Dispatcher = require('./dispatcher');
 //============================================
 //	Store
 //============================================
+
+var alertError = function(error) {
+	alert(util.format('ERROR %d %s: %s', error.status, error.statusText, error.responseText));
+};
+
 var ItemStore = function() {
+	
+	this.collection = null;
 	this.items = [];
 	this.fields = {};
 
+	this.loadItems = function(collection) {
+		this.collection = collection;
+
+		$.ajax({
+			url: util.format('%s/_fields', collection),
+			type: 'GET'
+
+		}).fail(function(error) {
+			alertError(error);
+		}).done(function(data) {
+			this.fields = data;
+
+			$.ajax({
+				url: util.format('%s', collection),
+				type: 'GET'
+
+			}).fail(function(error) {
+				alertError(error);
+			}).done(function(data) {
+				this.items = data;
+				this.trigger('itemsLoaded');
+
+			}.bind(this));	
+		}.bind(this));
+
+		
+	};
+
+	this.updateItemByField = function(id, field, value) {
+		var body = {};
+		body[field] = value;
+
+		$.ajax({
+			url: util.format('%s/%d', this.collection, id),
+			type: 'PUT',
+			data: body
+		}).fail(function(error) {
+			alertError(error);
+		}).done(function(data) {
+			this.loadItem(id);
+		}.bind(this));
+	};
+
+	this.loadItem = function(id) {
+		$.ajax({
+			url: util.format('%s/%d', this.collection, id),
+			type: 'GET'
+		}).fail(function(error) {
+			alertError(error);
+		}).done(function(data) {
+			for(var i in this.items) {
+				if(this.items[i].id == id) {
+					this.items[i] = data;
+					this.trigger('itemLoaded', id);
+					return;
+				}
+			}
+		}.bind(this));
+	};
+
+
+
+
+
 	this.load = function(actionData) {
+		this.collection = actionData.collection;
 		$.get(actionData.collection, function(items, status) {
 			if(status !== 'success') {
 				alert('Failed to load tables');
@@ -40,6 +112,22 @@ var ItemStore = function() {
 		this.fields[actionData.field].selected = actionData.selected;
 		this.trigger('selectionChanged');
 	};
+
+	this.updateSingleField = function(actionData) {
+		var updateItem = {};
+		updateItem[actionData.field] = actionData.value;
+		$.ajax({
+			url: this.collection + '/' + actionData.id,
+			type: 'PUT',
+			data: updateItem,
+		}).done(function(data, status) {
+			console.log('done', status, data);
+			this.trigger('fieldUpdated', null);
+		}.bind(this)).fail(function(jqxhr, status, err) {
+			console.log('fail', status, err);
+			this.trigger('fieldUpdated', err);
+		}.bind(this));
+	};
 };
 MicroEvent.mixin(ItemStore);
 var itemStore = new ItemStore();
@@ -48,15 +136,29 @@ var itemStore = new ItemStore();
 //============================================
 //	Actions
 //============================================
+var ACTION = {
+	loadItems: 'loadItems',
+	'updateItemByField': 'updateItemByField'
+};
 var dispatcher = new Dispatcher();
 dispatcher.register(function(action) {
+	console.log('action', action);
+
 	switch(action.name) {
-		case 'loadItems':
-			itemStore.load(action.data);
+		case ACTION.loadItems:
+			itemStore.loadItems(action.data.collection);
+			break;
+
+		case ACTION.updateItemByField:
+			itemStore.updateItemByField(action.data.id, action.data.field, action.data.value);
 			break;
 
 		case 'selectionChanged':
 			itemStore.selectionChanged(action.data);
+			break;
+
+		case 'updateSingleField':
+			itemStore.updateSingleField(action.data);
 			break;
 
 		default:
@@ -68,21 +170,34 @@ dispatcher.register(function(action) {
 //============================================
 //	Views
 //============================================
-var TableSelectItem = React.createClass({
+var CollectionSelectOption = React.createClass({
 	render: function() {
-		return (
-			<option>
-				{this.props.collection}
-			</option>
-		);
+		return <option>{this.props.collection}</option>;
 	}
 });
 
-var TableSelect = React.createClass({
+var CollectionControl = React.createClass({
+	render: function() {
+		return (
+			<div>
+				<select className='form-control' onChange={this.changed}> {
+					this.state.collections.map(function(collection, idx) { 
+						return <CollectionSelectOption collection={collection} />;
+					})
+				} </select>
+				<FieldSelect fields={this.state.fields} />
+			</div>
+		);
+	},
 
 	getInitialState: function() {
 		return {collections: [], fields: []};
 	},
+
+	changed: function(event) {
+
+	},
+
 
 	selectionChanged: function(event) {
 		
@@ -108,7 +223,6 @@ var TableSelect = React.createClass({
 					fields: fields
 				}
 			});
-
 		}.bind(this));
 
 
@@ -130,27 +244,11 @@ var TableSelect = React.createClass({
 
 		
 		
-	},
-
-	
-
-	render: function() {
-	
-		return (
-			<div>
-				<select id='collectionSelect' className='form-control' onChange={this.selectionChanged} >
-					{
-						this.state.collections.map(function(collection, idx) { 
-							return (
-								<TableSelectItem collection={collection} /> 
-							);		
-						})
-					}
-				</select>
-				<FieldSelect fields={this.state.fields} />
-			</div>
-		);
 	}
+
+	
+
+	
 
 });
 
@@ -214,8 +312,9 @@ var TableDisplay = React.createClass({
 	componentDidUnmount: function() {
 		itemStore.unbind('changed', this.itemsStoreChanged);
 		itemStore.unbind('selectionChanged', this.itemsStoreChanged);
+		
+		
 	},
-
 
 	render: function() {
 		var filteredFields = {};
@@ -238,7 +337,7 @@ var TableDisplay = React.createClass({
 		}.bind(this));
 
 		return (
-			<table className="table table-hover table-striped table-condensed">
+			<table id='mytable' className='table table-hover table-striped table-condensed' data-sort-name='Gpa'>
 				<thead>
 					<TableDisplayHeader fields={filteredFields} />
 				</thead>
@@ -276,16 +375,41 @@ var TableDisplayHeader = React.createClass({
 
 var TableDisplayRow = React.createClass({
 
+	fieldUpdated: function(err) {
+		console.log('fieldUpdated', event);
+		alert('cannot update field');
+
+		itemStore.unbind('fieldUpdated', this.fieldUpdated);
+	},
+
+	changed: function(event) {
+		console.log('changed', event.target);
+		console.log('update item id', this.props.item.id, 'field', event.target.dataset.name, 'value', event.target.innerText);
+
+		itemStore.bind('fieldUpdated', this.fieldUpdated);
+
+		dispatcher.dispatch({
+			name: 'updateSingleField',
+			data: {
+				'id': this.props.item.id,
+				'field': event.target.dataset.name,
+				'value': event.target.innerText
+			}
+		});
+	},
+
+
+
 	render: function() {
 		return (
 			<tr>
 				{
 					$.map(this.props.item, function(value, key) {
-						return (
-							<td>{ value instanceof Date 
+						var v = value instanceof Date 
 								? dateFormat(value, 'yyyy/mm/dd')
-								: value.toString()
-							}</td>
+								: value.toString();
+						return (
+							<td data-name={key} contentEditable={true} onBlur={this.changed}>{v}</td>
 						);
 					}.bind(this))
 				}
@@ -316,12 +440,33 @@ var QueryPage = React.createClass({
 		return (
 			<div>
 				<h1>QueryPage</h1>
+				<p contenteditable="true">paragraph</p>
 				<div className='row'>
 					<div className='col-md-2'>
-						<TableSelect />
+						<CollectionControl />
 					</div>
 					<div className='col-md-9'>
 						<TableDisplay />
+					</div>
+				</div>
+				<div className='row'>
+					<div className='col-md-12'>
+						<form><div className="form-group">
+							<table>
+								<thead>
+									<tr>
+										<th>field 1</th>
+										<th>field 3</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td><input value='312'>abc</input></td>
+										<td>def</td>
+									</tr>
+								</tbody>
+							</table>
+						</div></form>
 					</div>
 				</div>
 			</div>
