@@ -348,7 +348,7 @@ var ItemTable = React.createClass({
 				</thead>
 				<tbody> {
 					this.props.items.map(function(item, idx) {
-						return <ItemTableRow key={idx} data-abc={idx} item={item} />;
+						return <ItemTableRow key={idx} abc={idx} item={item} />;
 					})
 				} </tbody>
 			</table>
@@ -383,7 +383,7 @@ var ItemTableRow = React.createClass({
 		}
 
 		console.log('render item', this.props.item);
-		console.log('dataset', this.props.dataset);
+		console.log('abc', this.props.abc);
 		return (
 			<tr> {
 				$.map(this.props.item, function(value, key) {
