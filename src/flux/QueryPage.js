@@ -1,6 +1,7 @@
 var React = require('react');
 var $ = require('jquery');
 var util = require('util');
+var url = require('url');
 var Case = require('case');
 var dateFormat = require('dateformat');
 var MicroEvent = require('microevent');
@@ -13,6 +14,13 @@ var Dispatcher = require('./dispatcher');
 
 var alertError = function(error) {
 	alert(util.format('ERROR %d %s: %s', error.status, error.statusText, error.responseText));
+};
+
+var EVENT = {
+	itemsLoaded: 'itemsLoaded',
+	itemLoaded: 'itemLoaded',
+	fieldSelectionChanged: 'fieldSelectionChanged',
+	fieldUpdated: 'fieldUpdated'
 };
 
 var ItemStore = function() {
@@ -32,6 +40,9 @@ var ItemStore = function() {
 			alertError(error);
 		}).done(function(data) {
 			this.fields = data;
+			for(var k in this.fields) {
+				this.fields[k].selected = true;
+			}
 
 			$.ajax({
 				url: util.format('%s', collection),
@@ -40,8 +51,18 @@ var ItemStore = function() {
 			}).fail(function(error) {
 				alertError(error);
 			}).done(function(data) {
+
 				this.items = data;
-				this.trigger('itemsLoaded');
+				this.items.forEach(function(item) {
+					$.each(item, function(key, value) {
+						if(this.fields[key].type === 'date') {
+							item[key] = new Date(Date.parse(item[key]));
+						}
+					}.bind(this));
+				}.bind(this));
+
+
+				this.trigger(EVENT.itemsLoaded);
 
 			}.bind(this));	
 		}.bind(this));
@@ -74,11 +95,16 @@ var ItemStore = function() {
 			for(var i in this.items) {
 				if(this.items[i].id == id) {
 					this.items[i] = data;
-					this.trigger('itemLoaded', id);
+					this.trigger(EVENT.itemLoaded, id);
 					return;
 				}
 			}
 		}.bind(this));
+	};
+
+	this.updateFieldSelection = function(field, selected) {
+		this.fields[field].selected = selected;
+		this.trigger(EVENT.fieldSelectionChanged);
 	};
 
 
@@ -138,11 +164,12 @@ var itemStore = new ItemStore();
 //============================================
 var ACTION = {
 	loadItems: 'loadItems',
-	'updateItemByField': 'updateItemByField'
+	updateItemByField: 'updateItemByField',
+	updateFieldSelection: 'updateFieldSelection'
 };
 var dispatcher = new Dispatcher();
 dispatcher.register(function(action) {
-	console.log('action', action);
+	console.log('Dispatch action', action.name, action.data);
 
 	switch(action.name) {
 		case ACTION.loadItems:
@@ -151,6 +178,10 @@ dispatcher.register(function(action) {
 
 		case ACTION.updateItemByField:
 			itemStore.updateItemByField(action.data.id, action.data.field, action.data.value);
+			break;
+
+		case ACTION.updateFieldSelection:
+			itemStore.updateFieldSelection(action.data.field, action.data.selected);
 			break;
 
 		case 'selectionChanged':
@@ -170,251 +201,200 @@ dispatcher.register(function(action) {
 //============================================
 //	Views
 //============================================
+
+var App = React.createClass({
+	render: function() {
+		return (
+			<div>
+				<h1>Query Page</h1>
+				<div className='row'>
+					<div className='col-md-2'>
+						<QueryControl collections={this.state.collections}
+							fields={this.state.fields} />
+					</div>
+					<div className='col-md-8'>
+						<ItemTable fields={this.state.fields} items={this.state.items} />
+					</div>
+				</div>
+			</div>
+		);
+	},
+
+	getInitialState: function() {
+		return {
+			collections: ['COLLECTION1', 'COLLECTION2'],
+			fields: {'FIELD1': {selected: true}, 'FIELD2': {selected: false}},
+			items: []
+		};
+	},
+
+	componentDidMount: function() {
+		console.log('App mounted');
+
+		itemStore.bind('itemsLoaded', this.itemsLoaded);
+
+		$.ajax({
+			url: url.format({pathname: '_collections'})
+		}).fail(function(error) {
+			alertError(error);
+		}).done(function(data) {
+			this.setState({collections: data});
+			dispatcher.dispatch({
+				name: ACTION.loadItems,
+				data: {
+					collection: data[0]
+				}
+			});
+		}.bind(this));
+	},
+
+	componentDidUnmount: function() {
+		itemStore.unbind('itemsLoaded', this.itemsLoaded);
+	},
+
+	itemsLoaded: function() {
+		console.log('Detect event itemsLoaded');
+		this.setState({
+			fields: itemStore.fields,
+			items: itemStore.items
+		});
+	}
+
+
+
+});
+
+var QueryControl = React.createClass({
+	render: function() {
+		return (
+			<div>
+				<CollectionSelect collections={this.props.collections} />
+				<FieldSelect fields={this.props.fields} />
+			</div>
+		);
+	}
+});
+
+var CollectionSelect = React.createClass({
+	render: function() {
+		return (
+			<select className='form-control' onChange={this.onChange}> {
+				this.props.collections.map(function(collection, idx) { 
+					return <CollectionSelectOption collection={collection} />;
+				})
+			} </select>
+		);
+	},
+
+	onChange: function(event) {
+		dispatcher.dispatch({
+			name: ACTION.loadItems,
+			data: {
+				collection: event.target.value
+			}
+		});
+	}
+});
+
 var CollectionSelectOption = React.createClass({
 	render: function() {
 		return <option>{this.props.collection}</option>;
 	}
 });
 
-var CollectionControl = React.createClass({
-	render: function() {
-		return (
-			<div>
-				<select className='form-control' onChange={this.changed}> {
-					this.state.collections.map(function(collection, idx) { 
-						return <CollectionSelectOption collection={collection} />;
-					})
-				} </select>
-				<FieldSelect fields={this.state.fields} />
-			</div>
-		);
-	},
-
-	getInitialState: function() {
-		return {collections: [], fields: []};
-	},
-
-	changed: function(event) {
-
-	},
-
-
-	selectionChanged: function(event) {
-		
-		var collection = event.target.value; //collections[0];
-		$.get(collection + '/_fields', function(fields, status) {
-			if(status !== 'success') {
-				alert('Failed to load fields for ' + collection);
-				return;
-			}
-
-			$.each(fields, function(key, value) {
-				value.selected = true;
-			});
-
-			this.setState({
-				fields: fields,
-			});
-
-			dispatcher.dispatch({
-				name: 'loadItems',
-				data: {
-					collection: collection,
-					fields: fields
-				}
-			});
-		}.bind(this));
-
-
-	},
-
-	componentDidMount: function() {
-
-		$.get('_collections', function(collections, status) {
-			
-			if(status !== 'success') {
-				alert('Failed to load tables');
-				return;
-			} 
-
-			this.state.collections = collections;
-			this.selectionChanged({target: {value: 'student'}});
-
-		}.bind(this));
-
-		
-		
-	}
-
-	
-
-	
-
-});
-
 var FieldSelect = React.createClass({
 	render: function() {
-		
 		return (
-			<div>
-				{
-					$.map(this.props.fields, function(fieldValues, fieldName) {
-						return (
-							<FieldSelectItem value={fieldName} selected={fieldValues.selected}/>
-						);
-					}.bind(this))
-				}
-			</div>
+			<div> {
+				$.map(this.props.fields, function(fieldProps, fieldName) {
+					return <FieldSelectOption value={fieldName} selected={fieldProps.selected} />;
+				})
+			} </div>
 		);
 	}
 });
 
-var FieldSelectItem = React.createClass({
+var FieldSelectOption = React.createClass({
+	render: function() {
+		return (
+			<div className='checkbox'>
+				<label>
+					<input type='checkbox' key={Date.now()} defaultChecked={this.props.selected} onChange={this.onChange} /> 
+					{this.props.value}
+				</label>
+			</div>
+		);
+	},
+
 	onChange: function(event) {
 		dispatcher.dispatch({
-			name: 'selectionChanged',
+			name: ACTION.updateFieldSelection,
 			data: {
 				field: this.props.value,
 				selected: event.target.checked
 			}
 		});
-	},
-	render: function() {
-		return (
-			<div className="checkbox" >
-				<label>
-					<input type="checkbox" key={Date.now()} defaultChecked={this.props.selected} onChange={this.onChange}/> {this.props.value}
-				</label>
-			</div>
-		);
 	}
 });
 
-
-var TableDisplay = React.createClass({
-
-	getInitialState: function() {
-		return {
-			fields: {},
-			items: []
-		};
-	},
-
-	itemsStoreChanged: function() {
-		this.setState({fields: itemStore.fields, items: itemStore.items});
-	},
-
-	componentDidMount: function() {
-		itemStore.bind('changed', this.itemsStoreChanged);
-		itemStore.bind('selectionChanged', this.itemsStoreChanged);
-	},
-
-	componentDidUnmount: function() {
-		itemStore.unbind('changed', this.itemsStoreChanged);
-		itemStore.unbind('selectionChanged', this.itemsStoreChanged);
-		
-		
-	},
-
+var ItemTable = React.createClass({
 	render: function() {
-		var filteredFields = {};
-		$.each(this.state.fields, function(key, value) {
-			if(value.selected)
-				filteredFields[key] = value;
-		}.bind(this));
-
-
-		var filteredItems = this.state.items.map(function(item) {
-			var filteredItem = {};
-			$.each(item, function(key, value) {
-				if(filteredFields[key]) {
-					filteredItem[key] = value;
-					
-				}
-
-			}.bind(this));	
-			return filteredItem;		
-		}.bind(this));
-
+		console.log('render items', this.props.items);
+		
 		return (
-			<table id='mytable' className='table table-hover table-striped table-condensed' data-sort-name='Gpa'>
+			<table className='table table-hover table-striped table-condensed'>
 				<thead>
-					<TableDisplayHeader fields={filteredFields} />
+					<ItemTableHeader key={Date.now()} fields={this.props.fields} />
 				</thead>
-
-				<tbody>
-					{
-						filteredItems.map(function(item) {
-							return (
-								<TableDisplayRow item={item} />
-							);
-						})
-					}
-				</tbody>
-
-			</table>
-		);
-	}
-});
-
-var TableDisplayHeader = React.createClass({
-	render: function() {
-		return (
-			<tr> 
-				{ 
-					$.map(this.props.fields, function(value, key) {
-						return (
-							<th>{Case.title(key)}</th>
-						);
+				<tbody> {
+					this.props.items.map(function(item, idx) {
+						return <ItemTableRow key={idx} data-abc={idx} item={item} />;
 					})
-				} 
-			</tr>
+				} </tbody>
+			</table>
+		);	
+	}
+	
+});
+
+var ItemTableHeader = React.createClass({
+	render: function() {
+		return (
+			<tr> { 
+				$.map(this.props.fields, function(value, key) {
+					return <th>{Case.title(key)}</th>;
+				})
+			} </tr>
 		);
 	}
 });
 
-var TableDisplayRow = React.createClass({
-
-	fieldUpdated: function(err) {
-		console.log('fieldUpdated', event);
-		alert('cannot update field');
-
-		itemStore.unbind('fieldUpdated', this.fieldUpdated);
-	},
-
-	changed: function(event) {
-		console.log('changed', event.target);
-		console.log('update item id', this.props.item.id, 'field', event.target.dataset.name, 'value', event.target.innerText);
-
-		itemStore.bind('fieldUpdated', this.fieldUpdated);
-
-		dispatcher.dispatch({
-			name: 'updateSingleField',
-			data: {
-				'id': this.props.item.id,
-				'field': event.target.dataset.name,
-				'value': event.target.innerText
-			}
-		});
-	},
-
-
-
+var ItemTableRow = React.createClass({
 	render: function() {
+		function changed(event) {
+			alert('Content changed');
+		}
+		function format(value) {
+			console.log('format', value, 'to', value.toString());
+			if(value instanceof Date)
+				return dateFormat(value, 'yyyy/mm/dd');
+			else
+				return value.toString();
+		}
+
+		console.log('render item', this.props.item);
+		console.log('dataset', this.props.dataset);
 		return (
-			<tr>
-				{
-					$.map(this.props.item, function(value, key) {
-						var v = value instanceof Date 
-								? dateFormat(value, 'yyyy/mm/dd')
-								: value.toString();
-						return (
-							<td data-name={key} contentEditable={true} onBlur={this.changed}>{v}</td>
-						);
-					}.bind(this))
-				}
-			</tr>
+			<tr> {
+				$.map(this.props.item, function(value, key) {
+					return (
+						<td> 
+							{format(value)} 
+						</td>);
+				})
+			} </tr>
 		);
+	
 	}
 });
 
@@ -422,59 +402,4 @@ var TableDisplayRow = React.createClass({
 
 
 
-
-
-var QueryPage = React.createClass({
-	getInitialState: function() {
-		return {items: []};
-	},
-	
-	
-
-	onClick: function(e) {
-		alert('Clicked ' + e.target.innerText);
-	},
-
-	render: function() {
-
-		return (
-			<div>
-				<h1>QueryPage</h1>
-				<p contenteditable="true">paragraph</p>
-				<div className='row'>
-					<div className='col-md-2'>
-						<CollectionControl />
-					</div>
-					<div className='col-md-9'>
-						<TableDisplay />
-					</div>
-				</div>
-				<div className='row'>
-					<div className='col-md-12'>
-						<form><div className="form-group">
-							<table>
-								<thead>
-									<tr>
-										<th>field 1</th>
-										<th>field 3</th>
-									</tr>
-								</thead>
-								<tbody>
-									<tr>
-										<td><input value='312'>abc</input></td>
-										<td>def</td>
-									</tr>
-								</tbody>
-							</table>
-						</div></form>
-					</div>
-				</div>
-			</div>
-
-		);
-	}	
-});
-
-
-
-module.exports = QueryPage;
+module.exports = App;
