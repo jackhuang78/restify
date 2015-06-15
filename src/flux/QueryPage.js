@@ -212,7 +212,7 @@ var App = React.createClass({
 						<QueryControl collections={this.state.collections}
 							fields={this.state.fields} />
 					</div>
-					<div className='col-md-8'>
+					<div className='col-md-10'>
 						<ItemTable fields={this.state.fields} items={this.state.items} />
 					</div>
 				</div>
@@ -280,7 +280,7 @@ var CollectionSelect = React.createClass({
 		return (
 			<select className='form-control' onChange={this.onChange}> {
 				this.props.collections.map(function(collection, idx) { 
-					return <CollectionSelectOption collection={collection} />;
+					return <CollectionSelectOption key={idx} collection={collection} />;
 				})
 			} </select>
 		);
@@ -304,10 +304,11 @@ var CollectionSelectOption = React.createClass({
 
 var FieldSelect = React.createClass({
 	render: function() {
+		var i = 0;
 		return (
 			<div> {
 				$.map(this.props.fields, function(fieldProps, fieldName) {
-					return <FieldSelectOption value={fieldName} selected={fieldProps.selected} />;
+					return <FieldSelectOption key={i++} value={fieldName} selected={fieldProps.selected} />;
 				})
 			} </div>
 		);
@@ -343,12 +344,12 @@ var ItemTable = React.createClass({
 		
 		return (
 			<table className='table table-hover table-striped table-condensed'>
-				<thead>
-					<ItemTableHeader key={Date.now()} fields={this.props.fields} />
+				<thead  key={Date.now()}>
+					<ItemTableHeader fields={this.props.fields} />
 				</thead>
-				<tbody> {
+				<tbody key={Date.now()}> {
 					this.props.items.map(function(item, idx) {
-						return <ItemTableRow key={idx} abc={idx} item={item} />;
+						return <ItemTableRow item={item} />;
 					})
 				} </tbody>
 			</table>
@@ -375,22 +376,19 @@ var ItemTableRow = React.createClass({
 			alert('Content changed');
 		}
 		function format(value) {
-			console.log('format', value, 'to', value.toString());
 			if(value instanceof Date)
 				return dateFormat(value, 'yyyy/mm/dd');
 			else
 				return value.toString();
 		}
 
-		console.log('render item', this.props.item);
-		console.log('abc', this.props.abc);
+		console.log('render item', this.props.abc, this.props.item);
 		return (
 			<tr> {
 				$.map(this.props.item, function(value, key) {
 					return (
-						<td> 
-							{format(value)} 
-						</td>);
+						<td> {format(value)} </td>
+					);
 				})
 			} </tr>
 		);
