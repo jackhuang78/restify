@@ -29,6 +29,16 @@ var ItemStore = function() {
 	this.items = [];
 	this.fields = {};
 
+	this.parseItem = function(fields, item) {
+		//console.log('fields', fields, 'item', item);
+		for(var f in item) {
+			//console.log('f', f);
+			if(fields[f] && fields[f].type === 'date') {
+				item[f] = new Date(Date.parse(item[f]));
+			}
+		}
+	};
+
 	this.loadItems = function(collection) {
 		this.collection = collection;
 
@@ -54,11 +64,12 @@ var ItemStore = function() {
 
 				this.items = data;
 				this.items.forEach(function(item) {
-					$.each(item, function(key, value) {
+					this.parseItem(this.fields, item);
+					/*$.each(item, function(key, value) {
 						if(this.fields[key].type === 'date') {
 							item[key] = new Date(Date.parse(item[key]));
 						}
-					}.bind(this));
+					}.bind(this));*/
 				}.bind(this));
 
 
@@ -78,9 +89,10 @@ var ItemStore = function() {
 			url: util.format('%s/%d', this.collection, id),
 			type: 'PUT',
 			data: body
-		}).fail(function(error) {
+		}).fail(function(error) { 
 			alertError(error);
-		}).done(function(data) {
+			this.loadItem(id);
+		}.bind(this)).done(function(data) {
 			this.loadItem(id);
 		}.bind(this));
 	};
@@ -92,6 +104,7 @@ var ItemStore = function() {
 		}).fail(function(error) {
 			alertError(error);
 		}).done(function(data) {
+			this.parseItem(this.fields, data);
 			for(var i in this.items) {
 				if(this.items[i].id == id) {
 					this.items[i] = data;
@@ -102,12 +115,28 @@ var ItemStore = function() {
 		}.bind(this));
 	};
 
+
+
 	this.updateFieldSelection = function(field, selected) {
 		this.fields[field].selected = selected;
 		this.trigger(EVENT.fieldSelectionChanged);
 	};
 
-
+	this.updateSingleField = function(id, field, value) {
+		var updateItem = {};
+		updateItem[field] = value;
+		$.ajax({
+			url: util.format('%s/%d', this.collection, id),
+			type: 'PUT',
+			data: updateItem,
+		}).done(function(data, status) {
+			console.log('done', status, data);
+			this.trigger(EVENT.fieldUpdated, null);
+		}.bind(this)).fail(function(jqxhr, status, err) {
+			console.log('fail', status, err);
+			this.trigger(EVENT.fieldUpdated, err);
+		}.bind(this));
+	};
 
 
 
@@ -139,21 +168,7 @@ var ItemStore = function() {
 		this.trigger('selectionChanged');
 	};
 
-	this.updateSingleField = function(actionData) {
-		var updateItem = {};
-		updateItem[actionData.field] = actionData.value;
-		$.ajax({
-			url: this.collection + '/' + actionData.id,
-			type: 'PUT',
-			data: updateItem,
-		}).done(function(data, status) {
-			console.log('done', status, data);
-			this.trigger('fieldUpdated', null);
-		}.bind(this)).fail(function(jqxhr, status, err) {
-			console.log('fail', status, err);
-			this.trigger('fieldUpdated', err);
-		}.bind(this));
-	};
+	
 };
 MicroEvent.mixin(ItemStore);
 var itemStore = new ItemStore();
@@ -188,7 +203,7 @@ dispatcher.register(function(action) {
 			itemStore.selectionChanged(action.data);
 			break;
 
-		case 'updateSingleField':
+		case ACTION.updateSingleField:
 			itemStore.updateSingleField(action.data);
 			break;
 
@@ -231,7 +246,9 @@ var App = React.createClass({
 	componentDidMount: function() {
 		console.log('App mounted');
 
-		itemStore.bind('itemsLoaded', this.itemsLoaded);
+		itemStore.bind(EVENT.itemsLoaded, this.itemsLoaded);
+		itemStore.bind(EVENT.fieldSelectionChanged, this.fieldSelectionChanged);
+		itemStore.bind(EVENT.itemLoaded, this.itemLoaded);
 
 		$.ajax({
 			url: url.format({pathname: '_collections'})
@@ -249,13 +266,27 @@ var App = React.createClass({
 	},
 
 	componentDidUnmount: function() {
-		itemStore.unbind('itemsLoaded', this.itemsLoaded);
+		itemStore.unbind(EVENT.itemsLoaded, this.itemsLoaded);
+		itemStore.unbind(EVENT.fieldSelectionChanged, this.fieldSelectionChanged);
+		itemStore.unbind(EVENT.itemLoaded, this.itemLoaded);
 	},
 
 	itemsLoaded: function() {
 		console.log('Detect event itemsLoaded');
 		this.setState({
 			fields: itemStore.fields,
+			items: itemStore.items
+		});
+	},
+
+	fieldSelectionChanged: function() {
+		console.log('Detect event fieldSelectionChanged');
+		this.setState();
+	},
+
+	itemLoaded: function(id) {
+		console.log('Detect event itemLoaded', id);
+		this.setState({
 			items: itemStore.items
 		});
 	}
@@ -342,15 +373,17 @@ var ItemTable = React.createClass({
 	render: function() {
 		console.log('render items', this.props.items);
 		
+		
+
 		return (
 			<table className='table table-hover table-striped table-condensed'>
-				<thead  key={Date.now()}>
+				<thead>
 					<ItemTableHeader fields={this.props.fields} />
 				</thead>
 				<tbody key={Date.now()}> {
 					this.props.items.map(function(item, idx) {
-						return <ItemTableRow item={item} />;
-					})
+						return <ItemTableRow item={item} fields={this.props.fields} />;	
+					}.bind(this))
 				} </tbody>
 			</table>
 		);	
@@ -361,9 +394,9 @@ var ItemTable = React.createClass({
 var ItemTableHeader = React.createClass({
 	render: function() {
 		return (
-			<tr> { 
+			<tr key={Date.now()}> { 
 				$.map(this.props.fields, function(value, key) {
-					return <th>{Case.title(key)}</th>;
+					return value.selected ? <th>{Case.title(key)}</th> : null;
 				})
 			} </tr>
 		);
@@ -372,27 +405,36 @@ var ItemTableHeader = React.createClass({
 
 var ItemTableRow = React.createClass({
 	render: function() {
-		function changed(event) {
-			alert('Content changed');
-		}
-		function format(value) {
+		var changed = function(event) {
+			dispatcher.dispatch({
+				name: ACTION.updateItemByField,
+				data: {
+					id: this.props.item.id,
+					field: event.target.dataset.field,
+					value: event.target.innerText
+				}
+			});
+		}.bind(this);
+
+		var format = function(value) {
 			if(value instanceof Date)
 				return dateFormat(value, 'yyyy/mm/dd');
 			else
 				return value.toString();
-		}
+		};
 
-		console.log('render item', this.props.abc, this.props.item);
+		console.log('render item', this.props.item, this.props.fields);
 		return (
 			<tr> {
 				$.map(this.props.item, function(value, key) {
-					return (
-						<td> {format(value)} </td>
-					);
-				})
+					return this.props.fields[key] && this.props.fields[key].selected 
+					? (<td data-field={key} contentEditable={key !== 'id'} onBlur={changed} >
+							{format(value)}
+						</td>)
+					: null;
+				}.bind(this))
 			} </tr>
 		);
-	
 	}
 });
 
