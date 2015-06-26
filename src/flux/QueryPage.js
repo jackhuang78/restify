@@ -406,15 +406,20 @@ var ItemTableHeader = React.createClass({
 var ItemTableRow = React.createClass({
 	render: function() {
 		var changed = function(event) {
-			dispatcher.dispatch({
-				name: ACTION.updateItemByField,
-				data: {
-					id: this.props.item.id,
-					field: event.target.dataset.field,
-					value: event.target.innerText
-				}
-			});
+			if(event.charCode == 13 && !event.shiftKey) {
+				dispatcher.dispatch({
+					name: ACTION.updateItemByField,
+					data: {
+						id: this.props.item.id,
+						field: event.target.dataset.field,
+						value: event.target.innerText
+					}
+				});
+			}	
 		}.bind(this);
+
+	
+
 
 		var format = function(value) {
 			if(value instanceof Date)
@@ -428,8 +433,8 @@ var ItemTableRow = React.createClass({
 			<tr> {
 				$.map(this.props.item, function(value, key) {
 					return this.props.fields[key] && this.props.fields[key].selected 
-					? (<td data-field={key} contentEditable={key !== 'id'} onBlur={changed} >
-							{format(value)}
+					? (<td data-field={key} contentEditable={key !== 'id'} onKeyPress={changed} style={{'white-space':'pre'}}>
+						{format(value)}
 						</td>)
 					: null;
 				}.bind(this))
