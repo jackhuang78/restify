@@ -116,57 +116,70 @@ var ItemStore = function() {
 	};
 
 
-
 	this.updateFieldSelection = function(field, selected) {
 		this.fields[field].selected = selected;
 		this.trigger(EVENT.fieldSelectionChanged);
 	};
 
-	this.updateSingleField = function(id, field, value) {
-		var updateItem = {};
-		updateItem[field] = value;
+	this.addItem = function() {
 		$.ajax({
-			url: util.format('%s/%d', this.collection, id),
-			type: 'PUT',
-			data: updateItem,
-		}).done(function(data, status) {
-			console.log('done', status, data);
-			this.trigger(EVENT.fieldUpdated, null);
-		}.bind(this)).fail(function(jqxhr, status, err) {
-			console.log('fail', status, err);
-			this.trigger(EVENT.fieldUpdated, err);
+			url: util.format('%s', this.collection),
+			type: 'POST',
+			data: {}
+		}).fail(function(error) {
+			alertError(error);
+		}).done(function(data) {
+			this.loadItem(data.id);
 		}.bind(this));
 	};
 
+	// this.updateSingleField = function(id, field, value) {
+	// 	var updateItem = {};
+	// 	updateItem[field] = value;
+	// 	$.ajax({
+	// 		url: util.format('%s/%d', this.collection, id),
+	// 		type: 'PUT',
+	// 		data: updateItem,
+	// 	}).done(function(data, status) {
+	// 		console.log('done', status, data);
+	// 		this.trigger(EVENT.fieldUpdated, null);
+	// 	}.bind(this)).fail(function(jqxhr, status, err) {
+	// 		console.log('fail', status, err);
+	// 		this.trigger(EVENT.fieldUpdated, err);
+	// 	}.bind(this));
+	// };
 
 
-	this.load = function(actionData) {
-		this.collection = actionData.collection;
-		$.get(actionData.collection, function(items, status) {
-			if(status !== 'success') {
-				alert('Failed to load tables');
-			} else {
-				this.fields = actionData.fields;
 
-				items.forEach(function(item) {
-					$.each(item, function(key, value) {
-						if(this.fields[key].type === 'date') {
-							item[key] = new Date(Date.parse(item[key]));
-						}
-					}.bind(this));
-				}.bind(this));
 
-				this.items = items;
+
+	// this.load = function(actionData) {
+	// 	this.collection = actionData.collection;
+	// 	$.get(actionData.collection, function(items, status) {
+	// 		if(status !== 'success') {
+	// 			alert('Failed to load tables');
+	// 		} else {
+	// 			this.fields = actionData.fields;
+
+	// 			items.forEach(function(item) {
+	// 				$.each(item, function(key, value) {
+	// 					if(this.fields[key].type === 'date') {
+	// 						item[key] = new Date(Date.parse(item[key]));
+	// 					}
+	// 				}.bind(this));
+	// 			}.bind(this));
+
+	// 			this.items = items;
 				
-				this.trigger('changed');
-			}
-		}.bind(this));		
-	};
+	// 			this.trigger('changed');
+	// 		}
+	// 	}.bind(this));		
+	// };
 
-	this.selectionChanged = function(actionData) {
-		this.fields[actionData.field].selected = actionData.selected;
-		this.trigger('selectionChanged');
-	};
+	// this.selectionChanged = function(actionData) {
+	// 	this.fields[actionData.field].selected = actionData.selected;
+	// 	this.trigger('selectionChanged');
+	// };
 
 	
 };
@@ -180,7 +193,8 @@ var itemStore = new ItemStore();
 var ACTION = {
 	loadItems: 'loadItems',
 	updateItemByField: 'updateItemByField',
-	updateFieldSelection: 'updateFieldSelection'
+	updateFieldSelection: 'updateFieldSelection',
+	addItem: 'addItem'
 };
 var dispatcher = new Dispatcher();
 dispatcher.register(function(action) {
@@ -199,12 +213,16 @@ dispatcher.register(function(action) {
 			itemStore.updateFieldSelection(action.data.field, action.data.selected);
 			break;
 
-		case 'selectionChanged':
-			itemStore.selectionChanged(action.data);
-			break;
+		// case 'selectionChanged':
+		// 	itemStore.selectionChanged(action.data);
+		// 	break;
 
 		case ACTION.updateSingleField:
 			itemStore.updateSingleField(action.data);
+			break;
+
+		case ACTION.addItem:
+			itemStore.addItem();
 			break;
 
 		default:
@@ -228,7 +246,12 @@ var App = React.createClass({
 							fields={this.state.fields} />
 					</div>
 					<div className='col-md-10'>
-						<ItemTable fields={this.state.fields} items={this.state.items} />
+						<div className='row'>
+							<ItemTable fields={this.state.fields} items={this.state.items} />
+						</div>
+						<div>
+							<button className='btn btn-default' type='submit' onClick={this.newItem}>New Item</button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -288,6 +311,13 @@ var App = React.createClass({
 		console.log('Detect event itemLoaded', id);
 		this.setState({
 			items: itemStore.items
+		});
+	},
+
+	newItem: function() {
+		console.log('new Item');
+		dispatcher.dispatch({
+			name: ACTION.addItem
 		});
 	}
 
@@ -372,8 +402,6 @@ var FieldSelectOption = React.createClass({
 var ItemTable = React.createClass({
 	render: function() {
 		console.log('render items', this.props.items);
-		
-		
 
 		return (
 			<table className='table table-hover table-striped table-condensed'>
@@ -384,7 +412,8 @@ var ItemTable = React.createClass({
 					this.props.items.map(function(item, idx) {
 						return <ItemTableRow item={item} fields={this.props.fields} />;	
 					}.bind(this))
-				} </tbody>
+				} 
+				</tbody>
 			</table>
 		);	
 	}
@@ -422,7 +451,9 @@ var ItemTableRow = React.createClass({
 
 
 		var format = function(value) {
-			if(value instanceof Date)
+			if(value == null)
+				return null;
+			else if(value instanceof Date)
 				return dateFormat(value, 'yyyy/mm/dd');
 			else
 				return value.toString();
