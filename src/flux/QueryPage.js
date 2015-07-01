@@ -65,11 +65,6 @@ var ItemStore = function() {
 				this.items = data;
 				this.items.forEach(function(item) {
 					this.parseItem(this.fields, item);
-					/*$.each(item, function(key, value) {
-						if(this.fields[key].type === 'date') {
-							item[key] = new Date(Date.parse(item[key]));
-						}
-					}.bind(this));*/
 				}.bind(this));
 
 
@@ -131,57 +126,7 @@ var ItemStore = function() {
 		}).done(function(data) {
 			this.loadItem(data.id);
 		}.bind(this));
-	};
-
-	// this.updateSingleField = function(id, field, value) {
-	// 	var updateItem = {};
-	// 	updateItem[field] = value;
-	// 	$.ajax({
-	// 		url: util.format('%s/%d', this.collection, id),
-	// 		type: 'PUT',
-	// 		data: updateItem,
-	// 	}).done(function(data, status) {
-	// 		console.log('done', status, data);
-	// 		this.trigger(EVENT.fieldUpdated, null);
-	// 	}.bind(this)).fail(function(jqxhr, status, err) {
-	// 		console.log('fail', status, err);
-	// 		this.trigger(EVENT.fieldUpdated, err);
-	// 	}.bind(this));
-	// };
-
-
-
-
-
-	// this.load = function(actionData) {
-	// 	this.collection = actionData.collection;
-	// 	$.get(actionData.collection, function(items, status) {
-	// 		if(status !== 'success') {
-	// 			alert('Failed to load tables');
-	// 		} else {
-	// 			this.fields = actionData.fields;
-
-	// 			items.forEach(function(item) {
-	// 				$.each(item, function(key, value) {
-	// 					if(this.fields[key].type === 'date') {
-	// 						item[key] = new Date(Date.parse(item[key]));
-	// 					}
-	// 				}.bind(this));
-	// 			}.bind(this));
-
-	// 			this.items = items;
-				
-	// 			this.trigger('changed');
-	// 		}
-	// 	}.bind(this));		
-	// };
-
-	// this.selectionChanged = function(actionData) {
-	// 	this.fields[actionData.field].selected = actionData.selected;
-	// 	this.trigger('selectionChanged');
-	// };
-
-	
+	};	
 };
 MicroEvent.mixin(ItemStore);
 var itemStore = new ItemStore();
@@ -212,10 +157,6 @@ dispatcher.register(function(action) {
 		case ACTION.updateFieldSelection:
 			itemStore.updateFieldSelection(action.data.field, action.data.selected);
 			break;
-
-		// case 'selectionChanged':
-		// 	itemStore.selectionChanged(action.data);
-		// 	break;
 
 		case ACTION.updateSingleField:
 			itemStore.updateSingleField(action.data);
