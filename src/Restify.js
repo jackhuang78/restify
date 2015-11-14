@@ -74,6 +74,10 @@ class Restify {
 	fields(type) {
 		return Object.keys(this.types[type]);
 	}
+
+	createStatement() {
+		let stmt = [];
+	}
 }
 
 function invRelation(relation) {
