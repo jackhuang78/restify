@@ -7,8 +7,8 @@
   },
   // To give you an idea how to override rule options:
   "rules": {
-    "quotes": [2, "single"],
-    "semi": [2, "always"],
+    "quotes": [1, "single"],
+    "semi": [1, "always"],
     "eol-last": [0],
     "no-mixed-requires": [0],
     "no-underscore-dangle": [0]
