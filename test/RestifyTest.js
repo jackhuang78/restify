@@ -7,25 +7,25 @@ let config = {
 	database: {host: 'localhost', user: 'root', pass: '', db: 'restify'},
 	schema: {
 		Person: {
-			name: {type: 'string', nullable: false},
-			gender: {type: 'enum', values: ['male', 'female']},
+			name: {nullable: false},
 			dateOfBirth: {type: 'date'}
 		},
 		Email: {
-			address: {type: 'string', nullable: false},
-			owner: {type: 'Person',	relation: 'manyToOne', mappedBy: 'emails'}
+			address: {nullable: false},
+			owner: {type: 'Person', relation: 'ManyToOne', as: 'emails'}
 		},
 		Organization: {
-			name: {type: 'string'},
-			members: {type: 'Person', relation: 'manyToMany', mappedBy: 'organization'}
+			name: {nullable: false},
+			members: {type: 'Person', relation: 'ManyToMany', as: 'organization'}
 		}
 	}
+
 };
 
 describe('Restify', () => {
 
-	describe('# constructor()', () => {
-		it('should instanciate', (done) => {
+	describe('# constructor', () => {
+		it('should instanciate properly', (done) => {
 			let restify = new Restify(config);
 			expect(restify).to.be.not.null;
 			expect(restify.database).to.deep.equal(config.database);
@@ -34,8 +34,11 @@ describe('Restify', () => {
 			expect(restify.collections()).to.include('Email');
 			expect(restify.collections()).to.include('Organization');
 
+			expect(restify.fields('Person')).to.include('_id');
+			expect(restify.fields('Email')).to.include('_id');
+			expect(restify.fields('Organization')).to.include('_id');
+
 			expect(restify.fields('Person')).to.include('name');
-			expect(restify.fields('Person')).to.include('gender');
 			expect(restify.fields('Person')).to.include('dateOfBirth');
 			expect(restify.fields('Email')).to.include('address');
 			expect(restify.fields('Email')).to.include('owner');
@@ -45,6 +48,38 @@ describe('Restify', () => {
 			expect(restify.fields('Person')).to.include('emails');
 			expect(restify.fields('Person')).to.include('organization');
 
+
+			done();
+		});
+	});
+
+	describe('# setup', () => {
+		let restify = null;
+		before((done) => {
+			restify = new Restify(config);
+			done();
+		});
+
+		it('should drop all tables', (done) => {
+			restify.reset().then((data) => {
+				done();
+			}).catch((err) => {
+				done(err);
+			});
+		});
+
+		it('should generate create table statements', (done) => {
+			restify.sync().then((data) => {
+				done();
+			}).catch((err) => {
+				done(err);
+			});
+		});
+	});
+
+	describe('# test', () => {
+		it('should await', (done) => {
+			
 			done();
 		});
 	});
