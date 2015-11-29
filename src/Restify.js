@@ -29,26 +29,26 @@ class Restify {
 
 		// read database configuration
 		// and create mysql connection
-		this.database = {
+		this._database = {
 			host: config.database.host,
 			user: config.database.user,
 			pass: config.database.pass,
 			db: config.database.db
 		};
 
-		this.types = JSON.parse(JSON.stringify(config.schema));
+		this._collections = JSON.parse(JSON.stringify(config.schema));
 
 		// add ID field and mark master relation
-		for(let typeName in this.types) {
-			let type = this.types[typeName];
+		for(let collectionName in this._collections) {
+			let collection = this._collections[collectionName];
 			
-			type._id = {
+			collection._id = {
 				type: 'int',
 				nullable: 'false',
 			};
 
-			for(let fieldName in type) {
-				let field = type[fieldName];
+			for(let fieldName in collection) {
+				let field = collection[fieldName];
 
 				if(field.nullable == null) {
 					field.nullable = true;
@@ -60,14 +60,14 @@ class Restify {
 			}
 		}
 
-		for(let typeName in this.types) {
-			let type = this.types[typeName];
+		for(let collectionName in this._collections) {
+			let collection = this._collections[collectionName];
 
-			for(let fieldName in type) {
-				let field = type[fieldName];
+			for(let fieldName in collection) {
+				let field = collection[fieldName];
 				if(field.master) {
-					this.types[field.type][field.as] = {
-						type: typeName,
+					this._collections[field.type][field.as] = {
+						type: collectionName,
 						nullable: false,
 						relation: this.invRelation(field.relation),
 						as: fieldName
@@ -83,7 +83,7 @@ class Restify {
 	 * @return {Array<String>} List of collections
 	 */
 	collections() {
-		return Object.keys(this.types);
+		return Object.keys(this._collections);
 	}
 
 	/**
@@ -93,32 +93,25 @@ class Restify {
 	 * @return {Array<String>} List of fields in the given collection.
 	 */
 	fields(collection) {
-		return Object.keys(this.types[collection]);
+		return Object.keys(this._collections[collection]);
 	}
 
 	connect() {
 		return new Connection(this);
 	}
 
-	reset() {
-		return new Promise((res, rej) => {
-			res('abc');
-			// let conn = this.connect();
 
-			// conn.exec(this.selectTableNameStmt())
-			// .then((tables) => {
-			// 	return conn.exec(this.setForeignKeyCheckStmt(0)).then((rows) => {
-			// 		conn.exec(this.setForeignKeyCheckStmt(1))
-			// 	});
-			// })
-			// .then((rows) => {
-			// 	return conn.exec(this.setForeignKeyCheckStmt(1));
-			// })
-			// .catch((err) => {
-			// 	conn.end();
-			// 	rej(err);
-			// });
-		});
+	async reset() {	
+		let conn = this.connect();
+
+		let tableNameRecords = await conn.exec(this.stmtSelectTableName());
+		await conn.exec(this.stmtSetForeignKeyCheck(false));
+		for(let record of tableNameRecords) {
+			await conn.exec(this.stmtDropTable(record.table_name));
+		}
+		await conn.exec(this.stmtSetForeignKeyCheck(true));
+
+		await conn.end();
 	}
 
 	/**
@@ -127,21 +120,14 @@ class Restify {
 	 * @param  {Boolean} update - To update or not.
 	 * @return {Promise<null>} 
 	 */
-	sync(update) {
-		return new Promise((res, rej) => {
-			let conn = this.connect();
-			//console.log('begin sync');
-			Promise.all(Object.keys(this.types).map((typeName) => {
-				return conn.exec(this.createTableStmt(typeName));
-			})).then((values) => {
-				//console.log('end sync');
-				conn.end();
-				res(values);
-			}).catch((err) => {
-				conn.end();
-				rej(err);
-			});
-		});
+	async sync(update) {
+		let conn = this.connect();
+
+		for(let collectionName of Object.keys(this._collections)) {
+			await conn.exec(this.stmtCreateTable(collectionName));
+		}
+
+		await conn.end();
 	}
 
 
@@ -174,23 +160,41 @@ class Restify {
 	}
 
 	
+	//===============================
+	//	SQL statements
+	//===============================
 	
-
-	createTableStmt(table) {
-		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(table)} (\n`
-			+ `\tid int, PRIMARY KEY(id)\n`
+	stmtCreateTable(table) {
+		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(table)} (`
+			+ `id int, PRIMARY KEY(id)`
 			+ `);`;
 	}
 
-	selectTableNameStmt() {
-		return `SELECT table_name\n`
-			+ `\tFROM information_schema.tables\n`
-			+ `\tWHERE table_schema=${mysql.escape(this.database.db)};`;
+	stmtSelectTableName() {
+		return `SELECT table_name `
+			+ `FROM information_schema.tables `
+			+ `WHERE table_schema=${mysql.escape(this._database.db)};`;
 	}
 
-	setForeignKeyCheckStmt(state) {
-		return `SET FOREIGN_KEY_CHECKS=${mysql.escape(state)};`;
+	stmtSetForeignKeyCheck(state) {
+		return `SET FOREIGN_KEY_CHECKS=${mysql.escape(state ? 1 : 0)};`;
 	}
+
+	stmtDropTable(table) {
+		return `DROP TABLE ${mysql.escapeId(table)};`;
+	}
+
+	stmtInsertInto(table, record) {
+		let columns = Object.keys(record);
+		let values = columns.map((column) => {
+			record[column];
+		});
+
+		return `INSERT INTO ${mysql.escapeId(table)} () VALUES ();`;
+		//TODO
+	}
+
+
 
 
 }
@@ -199,14 +203,14 @@ class Connection {
 	constructor(restify) {
 		this.restify = restify;
 		this.conn = mysql.createConnection({
-			host: restify.database.host,
-			user: restify.database.user,
-			password: restify.database.pass,
-			database: restify.database.db
+			host: restify._database.host,
+			user: restify._database.user,
+			password: restify._database.pass,
+			database: restify._database.db
 		});
 	}
 
-	exec(sql) {
+	async exec(sql) {
 		return new Promise((res, rej) => {
 			logger.debug(`SQL> ${sql}`);
 			this.conn.query(sql, (err, rows, fields) => {
@@ -217,7 +221,7 @@ class Connection {
 		});
 	}
 
-	end() {
+	async end() {
 		return new Promise((res, rej) => {
 			this.conn.end((err) => {
 				if(err)
@@ -228,12 +232,12 @@ class Connection {
 		
 	}
 
-	post() {
+	post(collection, item) {
 
 	}
 
 	get() {
-
+	
 	}
 
 	put() {

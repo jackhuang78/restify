@@ -28,7 +28,7 @@ describe('Restify', () => {
 		it('should instanciate properly', (done) => {
 			let restify = new Restify(config);
 			expect(restify).to.be.not.null;
-			expect(restify.database).to.deep.equal(config.database);
+			expect(restify._database).to.deep.equal(config.database);
 			
 			expect(restify.collections()).to.include('Person');
 			expect(restify.collections()).to.include('Email');
@@ -55,33 +55,24 @@ describe('Restify', () => {
 
 	describe('# setup', () => {
 		let restify = null;
+
 		before((done) => {
 			restify = new Restify(config);
 			done();
 		});
 
-		it('should drop all tables', (done) => {
-			restify.reset().then((data) => {
-				done();
-			}).catch((err) => {
-				done(err);
-			});
+		it('should drop all tables', async (done) => {
+			console.log('test reset');
+			await restify.reset();
+			done();
 		});
 
-		it('should generate create table statements', (done) => {
-			restify.sync().then((data) => {
-				done();
-			}).catch((err) => {
-				done(err);
-			});
-		});
-	});
-
-	describe('# test', () => {
-		it('should await', (done) => {
-			
+		it('should generate create table statements', async (done) => {
+			await restify.sync();
 			done();
 		});
 	});
+
+	
 
 });
