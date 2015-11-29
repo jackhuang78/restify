@@ -4,7 +4,8 @@ import babel from 'gulp-babel';
 import eslint from 'gulp-eslint';
 import jsdoc from 'gulp-jsdoc';
 import del from 'del';
-//require('babel-polyfill');
+import polyfill from 'babel-polyfill';
+
 
 
 gulp.task('default', () => {
@@ -22,7 +23,7 @@ gulp.task('lint', () => {
 		.pipe(eslint.failAfterError());
 });
 
-gulp.task('test', () => {
+gulp.task('test', ['lint'], () => {
 	return gulp.src('test/**/*.js')
 		.pipe(babel())
 		.pipe(mocha());
