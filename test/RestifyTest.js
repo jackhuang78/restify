@@ -62,7 +62,6 @@ describe('Restify', () => {
 		});
 
 		it('should drop all tables', async (done) => {
-			console.log('test reset');
 			await restify.reset();
 			done();
 		});
