@@ -62,16 +62,60 @@ describe('Restify', () => {
 		});
 
 		it('should drop all tables', async (done) => {
-			await restify.reset();
-			done();
+			try {
+				await restify.reset();
+				done();
+			} catch(e) {
+				done(e);
+			}
+			
+			
 		});
 
 		it('should generate create table statements', async (done) => {
-			await restify.sync();
-			done();
+			try {
+				await restify.sync();
+				done();
+			} catch(e) {
+				done(e);
+			}
+			
 		});
 	});
 
+	describe('# crud', () => {
+		let restify = null;
+		let conn = restify;
+
+		before((done) => {
+			restify = new Restify(config);
+			done();
+		});
+
+		beforeEach((done) => {
+			conn = restify.connect();
+			done();
+		});
+
+		afterEach(async (done) => {
+			try {
+				await conn.end();
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
+
+		it('should create an item', async (done) => {
+			try {
+				await conn.post('Person', {name: 'Jack'});
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
+
+	});
 	
 
 });

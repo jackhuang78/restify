@@ -123,9 +123,29 @@ class Restify {
 	async sync(update) {
 		let conn = this.connect();
 
+		// create table with id
 		for(let collectionName of Object.keys(this._collections)) {
-			await conn.exec(this.stmtCreateTable(collectionName));
+			await conn.exec(this.stmtCreateTable(collectionName, '_id'));
 		}
+
+		for(let collectionName of Object.keys(this._collections)) {
+			let collection = this._collections[collectionName];
+			for(let fieldName of Object.keys(collection)) {
+				let field = collection[fieldName];
+
+				if(fieldName === '_id' || field.relation)
+					continue;
+
+				
+
+				console.log(fieldName, field);
+				await conn.exec(this.stmtAlterTableAdd(collectionName, fieldName, field));
+				
+				//console.log();
+			}
+		}
+		
+
 
 		await conn.end();
 	}
@@ -151,6 +171,19 @@ class Restify {
 		}
 	}
 
+	toSqlType(type) {
+		switch(type) {
+			case 'int':
+				return 'INT';
+			case 'string':
+				return 'VARCHAR(255)';
+			case 'date':
+				return 'DATETIME';
+			default:
+				return 'VARCHAR(255)';
+		}
+	}
+
 	escId(id) {	
 		return this.conn.escapeId(id);
 	}
@@ -164,16 +197,21 @@ class Restify {
 	//	SQL statements
 	//===============================
 	
-	stmtCreateTable(table) {
+	stmtCreateTable(table, id) {
 		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(table)} (`
-			+ `id int, PRIMARY KEY(id)`
+			+ `${mysql.escapeId(id)} int, PRIMARY KEY(${mysql.escapeId(id)})`
 			+ `);`;
 	}
 
+	stmtAlterTableAdd(table, columnName, column) {
+		return `ALTER TABLE ${mysql.escapeId(table)}`
+			+ ` ADD ${mysql.escapeId(columnName)} ${this.toSqlType(column.type)};`;
+	}
+
 	stmtSelectTableName() {
-		return `SELECT table_name `
-			+ `FROM information_schema.tables `
-			+ `WHERE table_schema=${mysql.escape(this._database.db)};`;
+		return `SELECT table_name`
+			+ ` FROM information_schema.tables`
+			+ ` WHERE table_schema=${mysql.escape(this._database.db)};`;
 	}
 
 	stmtSetForeignKeyCheck(state) {
@@ -187,11 +225,12 @@ class Restify {
 	stmtInsertInto(table, record) {
 		let columns = Object.keys(record);
 		let values = columns.map((column) => {
-			record[column];
+			return record[column];
 		});
 
-		return `INSERT INTO ${mysql.escapeId(table)} () VALUES ();`;
-		//TODO
+		return `INSERT INTO ${mysql.escapeId(table)}`
+			+ ` (${mysql.escapeId(columns)})`
+			+ ` VALUES (${mysql.escape(values)});`;
 	}
 
 
@@ -201,8 +240,8 @@ class Restify {
 
 class Connection {
 	constructor(restify) {
-		this.restify = restify;
-		this.conn = mysql.createConnection({
+		this._restify = restify;
+		this._conn = mysql.createConnection({
 			host: restify._database.host,
 			user: restify._database.user,
 			password: restify._database.pass,
@@ -213,7 +252,7 @@ class Connection {
 	async exec(sql) {
 		return new Promise((res, rej) => {
 			logger.debug(`SQL> ${sql}`);
-			this.conn.query(sql, (err, rows, fields) => {
+			this._conn.query(sql, (err, rows, fields) => {
 				if(err)
 					return rej(err);
 				return res(rows);
@@ -223,7 +262,7 @@ class Connection {
 
 	async end() {
 		return new Promise((res, rej) => {
-			this.conn.end((err) => {
+			this._conn.end((err) => {
 				if(err)
 					rej(err);
 				res();
@@ -232,8 +271,11 @@ class Connection {
 		
 	}
 
-	post(collection, item) {
-
+	async post(collection, item) {
+		console.log(collection, item, 'abc');
+		let res = await this.exec(this._restify.stmtInsertInto(collection, item));
+		console.log(res);
+		return;
 	}
 
 	get() {
