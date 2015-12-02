@@ -193,8 +193,6 @@ class Restify {
 						await conn.exec(this.stmtCreateJoinTable(collectionName, '_id', fieldName, field.type, '_id'));
 						break;	
 				}
-
-
 			}
 		}
 		
