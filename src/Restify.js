@@ -1,11 +1,21 @@
+import Enum from 'es6-enum';
 import mysql from 'mysql';
 import logger from './Logger';
 
 
-const ONE_TO_ONE = 'OneToOne';
-const ONE_TO_MANY = 'OneToMany';
-const MANY_TO_ONE = 'ManyToOne';
-const MANY_TO_MANY = 'ManyToMany';
+
+const Relation = {
+	OneToOne: 'OneToOne',
+	OneToMany: 'OneToMany',
+	ManyToOne: 'ManyToOne',
+	ManyToMany: 'ManyToMany'
+};
+
+const Type = {
+	int: 'INT',
+	date: 'DATETIME',
+	string: 'VARCHAR(255)'
+};
 
 /**
  * @class Restify
@@ -26,7 +36,7 @@ const MANY_TO_MANY = 'ManyToMany';
  */
 class Restify {
 	
-	constructor(config) {
+	constructor(config, config2) {
 
 		// read database configuration
 		// and create mysql connection
@@ -37,29 +47,57 @@ class Restify {
 			db: config.database.db
 		};
 
-		this._collections = JSON.parse(JSON.stringify(config.schema));
 
-		// add ID field and mark master relation
-		for(let collectionName in this._collections) {
-			let collection = this._collections[collectionName];
-			
-			collection._id = {
-				type: 'int',
-				nullable: 'false',
+
+
+		//this._collections = JSON.parse(JSON.stringify(config.schema));
+		
+		this._collections = {};
+		for(let collectionName in config.schema) {
+			this._collections[collectionName] = {
+				_id: {
+					type: Type.int,
+					nullable: false,
+					key: true
+				}
 			};
 
-			for(let fieldName in collection) {
-				let field = collection[fieldName];
+			for(let fieldName in config.schema[collectionName]) {
+				let field = config.schema[collectionName][fieldName];
 
-				if(field.nullable == null) {
-					field.nullable = true;
-				} 
-
-				if(field.relation != null) {
-					field.master = true;
-				}
+				this._collections[collectionName][fieldName] = {
+					type: (field.type == null) ? 'string' : field.type,
+					nullable: (field.nullable) ? true : false,
+					relation: Relation[field.relation],
+					master: Relation[field.relation] ? true : false,
+					as: field.as
+				};
 			}
+
+
 		}
+
+		// add ID field and mark master relation
+		// for(let collectionName in this._collections) {
+		// 	let collection = this._collections[collectionName];
+			
+		// 	collection._id = {
+		// 		type: Type.int,
+		// 		nullable: 'false'
+		// 	};
+
+		// 	for(let fieldName in collection) {
+		// 		let field = collection[fieldName];
+
+		// 		if(field.nullable == null) {
+		// 			field.nullable = true;
+		// 		} 
+
+		// 		if(field.relation != null) {
+		// 			field.master = true;
+		// 		}
+		// 	}
+		// }
 
 		for(let collectionName in this._collections) {
 			let collection = this._collections[collectionName];
@@ -143,19 +181,16 @@ class Restify {
 					continue;
 				}
 
-				if(!field.master) {
+				if(!field.master)
 					continue;
-				}
 
-
-				
 				switch(field.relation) {
-					case MANY_TO_MANY:
+					case Relation.ManyToMany:
 						await conn.exec(this.stmtCreateJoinTable(collectionName, '_id', fieldName, field.type, '_id'));
-						break;
-					default:
-
+						break;	
 				}
+
+
 			}
 		}
 		
@@ -175,31 +210,18 @@ class Restify {
 	// TODO make enum
 	invRelation(relation) {
 		switch(relation) {
-			case ONE_TO_ONE:
-			case MANY_TO_MANY:
+			case Relation.OneToOne:
+			case Relation.ManyToMany:
 				return relation;
-			case ONE_TO_MANY: 
-				return MANY_TO_ONE;
-			case MANY_TO_ONE:
-				return ONE_TO_MANY;
+			case Relation.OneToMany: 
+				return Relation.ManyToOne;
+			case Relation.ManyToOne:
+				return Relation.OneToMany;
 			default:
-				throw new Error(`Undefined relation ${relation}.`);
+				return null;
 		}
 	}
 
-	//TODO make enum
-	toSqlType(type) {
-		switch(type) {
-			case 'int':
-				return 'INT';
-			case 'string':
-				return 'VARCHAR(255)';
-			case 'date':
-				return 'DATETIME';
-			default:
-				return 'VARCHAR(255)';
-		}
-	}
 
 	
 	//===============================
@@ -224,10 +246,10 @@ class Restify {
 
 	stmtAlterTableAdd(table, columnName, column) {
 		return `ALTER TABLE ${mysql.escapeId(table)}`
-			+ ` ADD ${mysql.escapeId(columnName)} ${this.toSqlType(column.type)};`;
+			+ ` ADD ${mysql.escapeId(columnName)} ${Type[column.type]};`;
 	}
 
-	
+
 	stmtSelectTableName() {
 		return `SELECT table_name`
 			+ ` FROM information_schema.tables`
@@ -252,9 +274,6 @@ class Restify {
 			+ ` (${mysql.escapeId(columns)})`
 			+ ` VALUES (${mysql.escape(values)});`;
 	}
-
-
-
 
 }
 

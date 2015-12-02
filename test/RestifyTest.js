@@ -22,6 +22,29 @@ let config = {
 
 };
 
+// let config2 = {
+// 	database: {host: 'localhost', user: 'root', pass: '', db: 'restify'},
+// 	schema: [{
+// 		name: 'Person',
+// 		fields: [
+// 			{name: 'name', nullable: false},
+// 			{name: 'dateOfBirth', type: 'date'}
+// 		]
+// 	}, {
+// 		name: 'Email',
+// 		fields: [
+// 			{name: 'address', nullable: false},
+// 			{name: 'owner', type: 'Person', relation: 'ManyToOne', as: 'emails'}
+// 		]
+// 	}, {
+// 		name: 'Organization',
+// 		fields: [
+// 			{name: 'name', nullable: false},
+// 			{name: 'members', type: 'Person', relation: 'ManyToMany', as: 'organization'}
+// 		]
+// 	}]
+// };
+
 describe('Restify', () => {
 
 	describe('# constructor', () => {
