@@ -1,6 +1,7 @@
 import mysql from 'mysql';
 import logger from './Logger';
 
+
 const ONE_TO_ONE = 'OneToOne';
 const ONE_TO_MANY = 'OneToMany';
 const MANY_TO_ONE = 'ManyToOne';
@@ -128,20 +129,33 @@ class Restify {
 			await conn.exec(this.stmtCreateTable(collectionName, '_id'));
 		}
 
+		// add columns
 		for(let collectionName of Object.keys(this._collections)) {
 			let collection = this._collections[collectionName];
 			for(let fieldName of Object.keys(collection)) {
 				let field = collection[fieldName];
 
-				if(fieldName === '_id' || field.relation)
+				if(fieldName === '_id')
 					continue;
+				
+				if(!field.relation) {
+					await conn.exec(this.stmtAlterTableAdd(collectionName, fieldName, field));
+					continue;
+				}
+
+				if(!field.master) {
+					continue;
+				}
+
 
 				
+				switch(field.relation) {
+					case MANY_TO_MANY:
+						await conn.exec(this.stmtCreateJoinTable(collectionName, '_id', fieldName, field.type, '_id'));
+						break;
+					default:
 
-				console.log(fieldName, field);
-				await conn.exec(this.stmtAlterTableAdd(collectionName, fieldName, field));
-				
-				//console.log();
+				}
 			}
 		}
 		
@@ -157,6 +171,8 @@ class Restify {
 	//========================================
 	//	Private Functions
 	//========================================
+	
+	// TODO make enum
 	invRelation(relation) {
 		switch(relation) {
 			case ONE_TO_ONE:
@@ -171,6 +187,7 @@ class Restify {
 		}
 	}
 
+	//TODO make enum
 	toSqlType(type) {
 		switch(type) {
 			case 'int':
@@ -184,14 +201,6 @@ class Restify {
 		}
 	}
 
-	escId(id) {	
-		return this.conn.escapeId(id);
-	}
-
-	escVal(val) {
-		return this.conn.escape(val);
-	}
-
 	
 	//===============================
 	//	SQL statements
@@ -203,10 +212,22 @@ class Restify {
 			+ `);`;
 	}
 
+	stmtCreateJoinTable(master, masterId, field, slave, slaveId) {
+		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(`${master}_${field}`)} (`
+			+ ` ${mysql.escapeId(`_id`)} int,`
+			+ ` FOREIGN KEY (${mysql.escapeId(`_id`)}) `
+			+ ` REFERENCES ${mysql.escapeId(master)}(${mysql.escapeId(masterId)}),`
+			+ ` ${mysql.escapeId(`${field}_id`)} int,`
+			+ ` FOREIGN KEY (${mysql.escapeId(`${field}_id`)}) `
+			+ ` REFERENCES ${mysql.escapeId(slave)}(${mysql.escapeId(slaveId)}));`;
+	}
+
 	stmtAlterTableAdd(table, columnName, column) {
 		return `ALTER TABLE ${mysql.escapeId(table)}`
 			+ ` ADD ${mysql.escapeId(columnName)} ${this.toSqlType(column.type)};`;
 	}
+
+	)
 
 	stmtSelectTableName() {
 		return `SELECT table_name`
