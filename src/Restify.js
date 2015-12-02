@@ -14,7 +14,7 @@ const Relation = {
 const Type = {
 	int: 'INT',
 	date: 'DATETIME',
-	string: 'VARCHAR(255)'
+	string: 'VARCHAR'
 };
 
 /**
@@ -47,11 +47,7 @@ class Restify {
 			db: config.database.db
 		};
 
-
-
-
-		//this._collections = JSON.parse(JSON.stringify(config.schema));
-		
+		// create records for each collection and the fields of each
 		this._collections = {};
 		for(let collectionName in config.schema) {
 			this._collections[collectionName] = {
@@ -67,38 +63,16 @@ class Restify {
 
 				this._collections[collectionName][fieldName] = {
 					type: (field.type == null) ? 'string' : field.type,
+					size: (field.type == null) ? 255 : null,
 					nullable: (field.nullable) ? true : false,
 					relation: Relation[field.relation],
 					master: Relation[field.relation] ? true : false,
 					as: field.as
 				};
 			}
-
-
 		}
 
-		// add ID field and mark master relation
-		// for(let collectionName in this._collections) {
-		// 	let collection = this._collections[collectionName];
-			
-		// 	collection._id = {
-		// 		type: Type.int,
-		// 		nullable: 'false'
-		// 	};
-
-		// 	for(let fieldName in collection) {
-		// 		let field = collection[fieldName];
-
-		// 		if(field.nullable == null) {
-		// 			field.nullable = true;
-		// 		} 
-
-		// 		if(field.relation != null) {
-		// 			field.master = true;
-		// 		}
-		// 	}
-		// }
-
+		// create relation between collections
 		for(let collectionName in this._collections) {
 			let collection = this._collections[collectionName];
 
@@ -247,8 +221,9 @@ class Restify {
 	}
 
 	stmtAlterTableAdd(table, columnName, column) {
+		let size = column.size ? `(${column.size})` : ``;
 		return `ALTER TABLE ${mysql.escapeId(table)}`
-			+ ` ADD ${mysql.escapeId(columnName)} ${Type[column.type]};`;
+			+ ` ADD ${mysql.escapeId(columnName)} ${Type[column.type]}${size};`;
 	}
 
 	stmtAlterTableAddFk(table, columnName, column) {
@@ -257,7 +232,6 @@ class Restify {
 			+ ` ADD FOREIGN KEY (${mysql.escapeId(`${columnName}_id`)})`
 			+ ` REFERENCES ${mysql.escapeId(column.type)}(${mysql.escapeId(`_id`)});`;
 	}
-
 
 	stmtSelectTableName() {
 		return `SELECT table_name`
@@ -282,6 +256,21 @@ class Restify {
 		return `INSERT INTO ${mysql.escapeId(table)}`
 			+ ` (${mysql.escapeId(columns)})`
 			+ ` VALUES (${mysql.escape(values)});`;
+	}
+
+	stmtSelectFrom(table, query) {
+		let columns = Object.keys(query);
+		let where = columns.map((column) => {
+			return (query[column] !== undefined) 
+				? `${mysql.escapeId(column)}=${mysql.escape(query[column])}`
+				: null;
+		}).filter((claus) => {
+			return (claus != null);
+		}).join(' AND ');
+
+		return `SELECT ${mysql.escapeId(columns)}`
+			+ ` FROM ${mysql.escapeId(table)}`
+			+ ` WHERE ${where};`;
 	}
 
 }
@@ -320,14 +309,17 @@ class Connection {
 	}
 
 	async post(collection, item) {
-		console.log(collection, item, 'abc');
+		//console.log(collection, item, 'abc');
 		let res = await this.exec(this._restify.stmtInsertInto(collection, item));
-		console.log(res);
-		return;
+		//console.log(res);
+		return res.insertId;
 	}
 
-	get() {
-	
+	async get(collection, q) {
+
+		let res = await this.exec(this._restify.stmtSelectFrom(collection, q));
+		console.log('get res:', res);
+		return res;
 	}
 
 	put() {

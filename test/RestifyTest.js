@@ -1,7 +1,9 @@
 import assert from 'assert';
-import {expect} from 'chai';
-
+import chai, {expect} from 'chai';
+import chaiDatetime from 'chai-datetime';
 import Restify from '../src/Restify';
+
+chai.use(chaiDatetime);
 
 let config = {
 	database: {host: 'localhost', user: 'root', pass: '', db: 'restify'},
@@ -108,7 +110,16 @@ describe('Restify', () => {
 
 		it('should create an item', async (done) => {
 			try {
-				await conn.post('Person', {name: 'Jack'});
+				let item = {name: 'Jack', dateOfBirth: new Date('12/17/1989')};
+				let id = await conn.post('Person', item);
+				expect(id).to.equal(0);
+
+				let res = await conn.get('Person', {_id: id, name: undefined, dateOfBirth: undefined});
+				console.log(typeof res[0].dateOfBirth);
+				expect(res[0]).to.have.property('_id', id);
+				expect(res[0]).to.have.property('name', item.name);
+				expect(res[0].dateOfBirth).to.equalDate(item.dateOfBirth);
+
 				done();
 			} catch(e) {
 				done(e);

@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "chai-datetime": "^1.4.0",
     "es6-enum": "^0.2.2",
     "mysql": "^2.9.0",
     "winston": "^2.1.0"
