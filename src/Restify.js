@@ -227,8 +227,7 @@ class Restify {
 			+ ` ADD ${mysql.escapeId(columnName)} ${this.toSqlType(column.type)};`;
 	}
 
-	)
-
+	
 	stmtSelectTableName() {
 		return `SELECT table_name`
 			+ ` FROM information_schema.tables`
