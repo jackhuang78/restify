@@ -185,6 +185,10 @@ class Restify {
 					continue;
 
 				switch(field.relation) {
+					case Relation.OneToOne:
+					case Relation.ManyToOne:
+						await conn.exec(this.stmtAlterTableAddFk(collectionName, fieldName, field));
+						break;
 					case Relation.ManyToMany:
 						await conn.exec(this.stmtCreateJoinTable(collectionName, '_id', fieldName, field.type, '_id'));
 						break;	
@@ -230,23 +234,30 @@ class Restify {
 	
 	stmtCreateTable(table, id) {
 		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(table)} (`
-			+ `${mysql.escapeId(id)} int, PRIMARY KEY(${mysql.escapeId(id)})`
+			+ `${mysql.escapeId(id)} INT, PRIMARY KEY(${mysql.escapeId(id)})`
 			+ `);`;
 	}
 
 	stmtCreateJoinTable(master, masterId, field, slave, slaveId) {
 		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(`${master}_${field}`)} (`
-			+ ` ${mysql.escapeId(`_id`)} int,`
+			+ ` ${mysql.escapeId(`_id`)} INT,`
 			+ ` FOREIGN KEY (${mysql.escapeId(`_id`)}) `
 			+ ` REFERENCES ${mysql.escapeId(master)}(${mysql.escapeId(masterId)}),`
-			+ ` ${mysql.escapeId(`${field}_id`)} int,`
-			+ ` FOREIGN KEY (${mysql.escapeId(`${field}_id`)}) `
+			+ ` ${mysql.escapeId(`${field}_id`)} INT,`
+			+ ` FOREIGN KEY (${mysql.escapeId(`${field}_id`)})`
 			+ ` REFERENCES ${mysql.escapeId(slave)}(${mysql.escapeId(slaveId)}));`;
 	}
 
 	stmtAlterTableAdd(table, columnName, column) {
 		return `ALTER TABLE ${mysql.escapeId(table)}`
 			+ ` ADD ${mysql.escapeId(columnName)} ${Type[column.type]};`;
+	}
+
+	stmtAlterTableAddFk(table, columnName, column) {
+		return `ALTER TABLE ${mysql.escapeId(table)}`
+			+ ` ADD ${mysql.escapeId(`${columnName}_id`)} INT,`
+			+ ` ADD FOREIGN KEY (${mysql.escapeId(`${columnName}_id`)})`
+			+ ` REFERENCES ${mysql.escapeId(column.type)}(${mysql.escapeId(`_id`)});`;
 	}
 
 
