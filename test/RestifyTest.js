@@ -10,7 +10,8 @@ let config = {
 	schema: {
 		Person: {
 			name: {nullable: false},
-			dateOfBirth: {type: 'date'}
+			dateOfBirth: {type: 'date'},
+			age: {type: 'int'}
 		},
 		Email: {
 			address: {nullable: false},
@@ -94,7 +95,9 @@ describe('Restify', () => {
 			done();
 		});
 
-		beforeEach((done) => {
+		beforeEach(async (done) => {
+			await restify.reset();
+			await restify.sync();
 			conn = restify.connect();
 			done();
 		});
@@ -108,22 +111,56 @@ describe('Restify', () => {
 			}
 		});
 
-		it('should create an item', async (done) => {
-			try {
-				let item = {name: 'Jack', dateOfBirth: new Date('12/17/1989')};
-				let id = await conn.post('Person', item);
-				expect(id).to.equal(0);
+		let item1 = {name: 'Jack', age: 26, dateOfBirth: new Date('12/17/1989')};
+		let item2 = {name: 'Joe', age: 40};
 
-				let res = await conn.get('Person', {_id: id, name: undefined, dateOfBirth: undefined});
-				console.log(typeof res[0].dateOfBirth);
+		it('should create an item and retrieve it', async (done) => {
+			try {
+				let id = await conn.post('Person', item1);
+				
+
+				let res = await conn.get('Person', {
+					select: ['*'],
+					where: {_id: id}
+				});
+
 				expect(res[0]).to.have.property('_id', id);
-				expect(res[0]).to.have.property('name', item.name);
-				expect(res[0].dateOfBirth).to.equalDate(item.dateOfBirth);
+				expect(res[0]).to.have.property('name', item1.name);
+				expect(res[0].dateOfBirth).to.equalDate(item1.dateOfBirth);
 
 				done();
 			} catch(e) {
 				done(e);
 			}
+		});
+
+		it('should query item by field', async (done) => {
+			try {
+				let id1 = await conn.post('Person', item1);
+				let id2 = await conn.post('Person', item2);
+
+				let items = await conn.get('Person', {
+					select: ['*'],
+					where: {age: ['>', 30]}
+				});
+				expect(items.length).to.equal(1);
+				expect(items[0]).to.have.property('_id', id2);
+				expect(items[0]).to.have.property('name', item2.name);
+
+				items = await conn.get('Person', {
+					select: ['*'],
+					where: {age: ['<', 50]}
+				});
+				expect(items.length).to.equal(2);
+				
+
+				console.log(items);
+
+				done();
+			} catch(e) {
+				done(e);	
+			}
+			
 		});
 
 	});

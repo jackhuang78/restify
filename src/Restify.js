@@ -206,7 +206,7 @@ class Restify {
 	
 	stmtCreateTable(table, id) {
 		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(table)} (`
-			+ `${mysql.escapeId(id)} INT, PRIMARY KEY(${mysql.escapeId(id)})`
+			+ `${mysql.escapeId(id)} INT AUTO_INCREMENT, PRIMARY KEY(${mysql.escapeId(id)})`
 			+ `);`;
 	}
 
@@ -259,16 +259,21 @@ class Restify {
 	}
 
 	stmtSelectFrom(table, query) {
-		let columns = Object.keys(query);
-		let where = columns.map((column) => {
-			return (query[column] !== undefined) 
-				? `${mysql.escapeId(column)}=${mysql.escape(query[column])}`
-				: null;
-		}).filter((claus) => {
-			return (claus != null);
+		let select = (query.select.indexOf('*') >= 0)
+			? Object.keys(this._collections[table]).filter((field) => {
+				return Relation[this._collections[table][field].relation] == null;
+			})
+			: query.select;
+
+		let where = Object.keys(query.where).map((column) => {
+			let crit = query.where[column];
+			if(!(crit instanceof Array))
+				crit = ['=', crit];
+			return `${mysql.escapeId(column)}${crit[0]}${mysql.escape(crit[1])}`;
 		}).join(' AND ');
 
-		return `SELECT ${mysql.escapeId(columns)}`
+
+		return `SELECT ${mysql.escapeId(select)}`
 			+ ` FROM ${mysql.escapeId(table)}`
 			+ ` WHERE ${where};`;
 	}
@@ -309,9 +314,7 @@ class Connection {
 	}
 
 	async post(collection, item) {
-		//console.log(collection, item, 'abc');
 		let res = await this.exec(this._restify.stmtInsertInto(collection, item));
-		//console.log(res);
 		return res.insertId;
 	}
 
@@ -326,7 +329,7 @@ class Connection {
 
 	}
 
-	delete() {
+	delete(collection) {
 
 	}
 
