@@ -107,11 +107,16 @@ describe('Restify', () => {
 			done();
 		});
 
+		let close = async (done) => {
+			done();
+		};
+
 		afterEach(async (done) => {
 			try {
 				logger.setConsoleLevel('info');
 				await conn.end();
-				done();
+				close();
+				//done();
 			} catch(e) {
 				done(e);
 			}
