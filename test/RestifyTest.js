@@ -4,6 +4,7 @@ import chaiThings from 'chai-things';
 import chaiDatetime from 'chai-datetime';
 import chaiSubset from 'chai-subset';
 import Restify from '../src/Restify';
+import logger from '../src/Logger';
 
 chai.use(chaiDatetime);
 chai.use(chaiThings);
@@ -108,6 +109,7 @@ describe('Restify', () => {
 
 		afterEach(async (done) => {
 			try {
+				logger.setConsoleLevel('info');
 				await conn.end();
 				done();
 			} catch(e) {
@@ -115,13 +117,20 @@ describe('Restify', () => {
 			}
 		});
 
+		after(()=> {
+			
+		});
+
+
+
 		let item1 = {name: 'Jack', age: 26, dateOfBirth: new Date('12/17/1989')};
 		let item2 = {name: 'Joe', age: 40};
 
 		it('should create an item and retrieve it', async (done) => {
 			try {
+				logger.setConsoleLevel('debug');
+
 				let id = await conn.post('Person', item1);
-				
 				let res = await conn.get('Person', {
 					select: ['*'],
 					where: {_id: id}
@@ -147,7 +156,7 @@ describe('Restify', () => {
 					where: {age: ['>', 30]}
 				});
 				expect(items.length).to.equal(1);
-				expect(items).t.containSubset([Object.assign(item2, {_id: id2})]);
+				expect(items).to.containSubset([Object.assign(item2, {_id: id2})]);
 
 				items = await conn.get('Person', {
 					select: ['*'],
