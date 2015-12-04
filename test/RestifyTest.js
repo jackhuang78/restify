@@ -107,26 +107,15 @@ describe('Restify', () => {
 			done();
 		});
 
-		let close = async (done) => {
-			done();
-		};
-
 		afterEach(async (done) => {
 			try {
 				logger.setConsoleLevel('info');
 				await conn.end();
-				close();
-				//done();
+				done();
 			} catch(e) {
 				done(e);
 			}
 		});
-
-		after(()=> {
-			
-		});
-
-
 
 		let item1 = {name: 'Jack', age: 26, dateOfBirth: new Date('12/17/1989')};
 		let item2 = {name: 'Joe', age: 40};
