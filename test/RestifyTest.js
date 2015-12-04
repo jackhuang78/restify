@@ -1,9 +1,13 @@
 import assert from 'assert';
 import chai, {expect} from 'chai';
+import chaiThings from 'chai-things';
 import chaiDatetime from 'chai-datetime';
+import chaiSubset from 'chai-subset';
 import Restify from '../src/Restify';
 
 chai.use(chaiDatetime);
+chai.use(chaiThings);
+chai.use(chaiSubset);
 
 let config = {
 	database: {host: 'localhost', user: 'root', pass: '', db: 'restify'},
@@ -118,7 +122,6 @@ describe('Restify', () => {
 			try {
 				let id = await conn.post('Person', item1);
 				
-
 				let res = await conn.get('Person', {
 					select: ['*'],
 					where: {_id: id}
@@ -152,9 +155,14 @@ describe('Restify', () => {
 					where: {age: ['<', 50]}
 				});
 				expect(items.length).to.equal(2);
-				
-
-				console.log(items);
+				//console.log('123');
+				expect(items).to.containSubset([Object.assign(item1, {_id: id1})]);
+				expect(items).to.containSubset([Object.assign(item2, {_id: id2})]);
+				// expect(items).to.include.something.that.deep.equals(
+				// 		Object.assign({_id: id1}, item1)).and.containSubset({_id: id1});
+				// console.log('456');
+				// expect(items).to.include.something.that.containSubset(
+				// 		Object.assign({_id: id2}, item2));
 
 				done();
 			} catch(e) {
