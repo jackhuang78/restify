@@ -183,6 +183,11 @@ class Restify {
 	//	Private Functions
 	//========================================
 	
+	isToOne(relation) {
+		return (relation == Relation.OneToOne) || (relation == Relation.ManyToOne);
+	}
+
+
 	// TODO make enum
 	invRelation(relation) {
 		switch(relation) {
@@ -248,10 +253,19 @@ class Restify {
 	}
 
 	stmtInsertInto(table, record) {
-		let columns = Object.keys(record);
-		let values = columns.map((column) => {
-			return record[column];
-		});
+		let columns = Object.keys(record).map((column) => {
+			let field = this._collections[table][column];
+			if(field.relation == null) {
+				return column;
+			} else if(field.master && this.isToOne(field.relation)) {
+				return `${column}_id`;
+			} else {
+				return null;
+			}
+		}).filter((column) => (column != null));
+		
+		let values = Object.keys(record).map((column) => record[column]);
+		
 
 		return `INSERT INTO ${mysql.escapeId(table)}`
 			+ ` (${mysql.escapeId(columns)})`
@@ -314,14 +328,34 @@ class Connection {
 	}
 
 	async post(collection, item) {
+		let created = {};
+		for(let fieldName in item) {
+			if(item[fieldName] != null && typeof item[fieldName] === 'object') {
+				let field = this._restify._collections[collection][fieldName];
+				switch(field.relation) {
+					case Relation.OneToOne:
+					case Relation.ManyToOne:
+						created[fieldName] = await this.post(field.type, item[fieldName]);
+						item[fieldName] = created[fieldName]._id;
+						break;
+					case Relation.OneToMany:
+					case Relation.ManyToMany:
+						created[fieldName] = [];
+						for(let child of item[fieldName]) {
+							created[fieldName].push(await this.post(field.type, child));
+						}
+						item[fieldName] = created[fieldName].map((obj) => obj._id);
+						break;
+				}
+			}
+		}
 		let res = await this.exec(this._restify.stmtInsertInto(collection, item));
-		return res.insertId;
+		created._id = res.insertId;
+		return created;
 	}
 
 	async get(collection, q) {
-
 		let res = await this.exec(this._restify.stmtSelectFrom(collection, q));
-		console.log('get res:', res);
 		return res;
 	}
 

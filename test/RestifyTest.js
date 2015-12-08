@@ -69,9 +69,10 @@ describe('Restify', () => {
 			done();
 		});
 
-		it('should drop all tables', async (done) => {
+		it('should drop all tables and recreate them', async (done) => {
 			try {
 				await restify.reset();
+				await restify.sync();
 				done();
 			} catch(e) {
 				done(e);
@@ -80,15 +81,6 @@ describe('Restify', () => {
 			
 		});
 
-		it('should generate create table statements', async (done) => {
-			try {
-				await restify.sync();
-				done();
-			} catch(e) {
-				done(e);
-			}
-			
-		});
 	});
 
 	describe('# crud', () => {
@@ -119,12 +111,11 @@ describe('Restify', () => {
 
 		let item1 = {name: 'Jack', age: 26, dateOfBirth: new Date('12/17/1989')};
 		let item2 = {name: 'Joe', age: 40};
+		let item3 = {address: 'jack.huang78@gmail.com', 'owner':{name: 'Jack'}};
 
-		it('should create an item and retrieve it', async (done) => {
+		it('should create an item and retrieve it by ID', async (done) => {
 			try {
-				logger.setConsoleLevel('debug');
-
-				let id = await conn.post('Person', item1);
+				let id = (await conn.post('Person', item1))._id;
 				let res = await conn.get('Person', {
 					select: ['*'],
 					where: {_id: id}
@@ -140,31 +131,53 @@ describe('Restify', () => {
 			}
 		});
 
-		it('should query item by field', async (done) => {
+		it('should query items by field', async (done) => {
 			try {
-				let id1 = await conn.post('Person', item1);
-				let id2 = await conn.post('Person', item2);
+				let res1 = await conn.post('Person', item1);
+				let res2 = await conn.post('Person', item2);
+				expect(res1).to.have.property('_id');
+				expect(res2).to.have.property('_id');
+				
 
 				let items = await conn.get('Person', {
 					select: ['*'],
 					where: {age: ['>', 30]}
 				});
 				expect(items.length).to.equal(1);
-				expect(items).to.containSubset([Object.assign(item2, {_id: id2})]);
+				expect(items).to.containSubset([Object.assign(item2, {_id: res2._id})]);
 
 				items = await conn.get('Person', {
 					select: ['*'],
 					where: {age: ['<', 50]}
 				});
 				expect(items.length).to.equal(2);
-				expect(items).to.containSubset([Object.assign(item1, {_id: id1})]);
-				expect(items).to.containSubset([Object.assign(item2, {_id: id2})]);
+				expect(items).to.containSubset([Object.assign(item1, {_id: res1._id})]);
+				expect(items).to.containSubset([Object.assign(item2, {_id: res2._id})]);
+
 
 				done();
 			} catch(e) {
 				done(e);	
 			}
-			
+		});
+
+		it('should create item with nested item', async (done) => {
+			try {
+				logger.setConsoleLevel('debug');
+
+				let created = await conn.post('Email', item3);
+				expect(created).to.have.property('_id');
+				expect(created).to.have.property('owner');
+				expect(created).to.have.deep.property('owner._id');
+
+
+
+
+				//TODO: do this next
+				done();
+			} catch(e) {
+				done(e);
+			}
 		});
 
 	});
