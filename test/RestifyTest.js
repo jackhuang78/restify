@@ -1,13 +1,9 @@
 import assert from 'assert';
 import chai, {expect} from 'chai';
-import chaiThings from 'chai-things';
-import chaiDatetime from 'chai-datetime';
 import chaiSubset from 'chai-subset';
 import Restify from '../src/Restify';
 import logger from '../src/Logger';
 
-chai.use(chaiDatetime);
-chai.use(chaiThings);
 chai.use(chaiSubset);
 
 let config = {
