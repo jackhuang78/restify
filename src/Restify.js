@@ -1,10 +1,21 @@
+import Enum from 'es6-enum';
 import mysql from 'mysql';
 import logger from './Logger';
 
-const ONE_TO_ONE = 'OneToOne';
-const ONE_TO_MANY = 'OneToMany';
-const MANY_TO_ONE = 'ManyToOne';
-const MANY_TO_MANY = 'ManyToMany';
+
+
+const Relation = {
+	OneToOne: 'OneToOne',
+	OneToMany: 'OneToMany',
+	ManyToOne: 'ManyToOne',
+	ManyToMany: 'ManyToMany'
+};
+
+const Type = {
+	int: 'INT',
+	date: 'DATETIME',
+	string: 'VARCHAR'
+};
 
 /**
  * @class Restify
@@ -25,7 +36,7 @@ const MANY_TO_MANY = 'ManyToMany';
  */
 class Restify {
 	
-	constructor(config) {
+	constructor(config, config2) {
 
 		// read database configuration
 		// and create mysql connection
@@ -36,30 +47,32 @@ class Restify {
 			db: config.database.db
 		};
 
-		this._collections = JSON.parse(JSON.stringify(config.schema));
-
-		// add ID field and mark master relation
-		for(let collectionName in this._collections) {
-			let collection = this._collections[collectionName];
-			
-			collection._id = {
-				type: 'int',
-				nullable: 'false',
+		// create records for each collection and the fields of each
+		this._collections = {};
+		for(let collectionName in config.schema) {
+			this._collections[collectionName] = {
+				_id: {
+					type: Type.int,
+					nullable: false,
+					key: true
+				}
 			};
 
-			for(let fieldName in collection) {
-				let field = collection[fieldName];
+			for(let fieldName in config.schema[collectionName]) {
+				let field = config.schema[collectionName][fieldName];
 
-				if(field.nullable == null) {
-					field.nullable = true;
-				} 
-
-				if(field.relation != null) {
-					field.master = true;
-				}
+				this._collections[collectionName][fieldName] = {
+					type: (field.type == null) ? 'string' : field.type,
+					size: (field.type == null) ? 255 : null,
+					nullable: (field.nullable) ? true : false,
+					relation: Relation[field.relation],
+					master: Relation[field.relation] ? true : false,
+					as: field.as
+				};
 			}
 		}
 
+		// create relation between collections
 		for(let collectionName in this._collections) {
 			let collection = this._collections[collectionName];
 
@@ -123,9 +136,41 @@ class Restify {
 	async sync(update) {
 		let conn = this.connect();
 
+		// create table with id
 		for(let collectionName of Object.keys(this._collections)) {
-			await conn.exec(this.stmtCreateTable(collectionName));
+			await conn.exec(this.stmtCreateTable(collectionName, '_id'));
 		}
+
+		// add columns
+		for(let collectionName of Object.keys(this._collections)) {
+			let collection = this._collections[collectionName];
+			for(let fieldName of Object.keys(collection)) {
+				let field = collection[fieldName];
+
+				if(fieldName === '_id')
+					continue;
+				
+				if(!field.relation) {
+					await conn.exec(this.stmtAlterTableAdd(collectionName, fieldName, field));
+					continue;
+				}
+
+				if(!field.master)
+					continue;
+
+				switch(field.relation) {
+					case Relation.OneToOne:
+					case Relation.ManyToOne:
+						await conn.exec(this.stmtAlterTableAddFk(collectionName, fieldName, field));
+						break;
+					case Relation.ManyToMany:
+						await conn.exec(this.stmtCreateJoinTable(collectionName, '_id', fieldName, field.type, '_id'));
+						break;	
+				}
+			}
+		}
+		
+
 
 		await conn.end();
 	}
@@ -137,43 +182,66 @@ class Restify {
 	//========================================
 	//	Private Functions
 	//========================================
+	
+	isToOne(relation) {
+		return (relation == Relation.OneToOne) || (relation == Relation.ManyToOne);
+	}
+
+
+	// TODO make enum
 	invRelation(relation) {
 		switch(relation) {
-			case ONE_TO_ONE:
-			case MANY_TO_MANY:
+			case Relation.OneToOne:
+			case Relation.ManyToMany:
 				return relation;
-			case ONE_TO_MANY: 
-				return MANY_TO_ONE;
-			case MANY_TO_ONE:
-				return ONE_TO_MANY;
+			case Relation.OneToMany: 
+				return Relation.ManyToOne;
+			case Relation.ManyToOne:
+				return Relation.OneToMany;
 			default:
-				throw new Error(`Undefined relation ${relation}.`);
+				return null;
 		}
 	}
 
-	escId(id) {	
-		return this.conn.escapeId(id);
-	}
-
-	escVal(val) {
-		return this.conn.escape(val);
-	}
 
 	
 	//===============================
 	//	SQL statements
 	//===============================
 	
-	stmtCreateTable(table) {
+	stmtCreateTable(table, id) {
 		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(table)} (`
-			+ `id int, PRIMARY KEY(id)`
+			+ `${mysql.escapeId(id)} INT AUTO_INCREMENT, PRIMARY KEY(${mysql.escapeId(id)})`
 			+ `);`;
 	}
 
+	stmtCreateJoinTable(master, masterId, field, slave, slaveId) {
+		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(`${master}_${field}`)} (`
+			+ ` ${mysql.escapeId(`_id`)} INT,`
+			+ ` FOREIGN KEY (${mysql.escapeId(`_id`)}) `
+			+ ` REFERENCES ${mysql.escapeId(master)}(${mysql.escapeId(masterId)}),`
+			+ ` ${mysql.escapeId(`${field}_id`)} INT,`
+			+ ` FOREIGN KEY (${mysql.escapeId(`${field}_id`)})`
+			+ ` REFERENCES ${mysql.escapeId(slave)}(${mysql.escapeId(slaveId)}));`;
+	}
+
+	stmtAlterTableAdd(table, columnName, column) {
+		let size = column.size ? `(${column.size})` : ``;
+		return `ALTER TABLE ${mysql.escapeId(table)}`
+			+ ` ADD ${mysql.escapeId(columnName)} ${Type[column.type]}${size};`;
+	}
+
+	stmtAlterTableAddFk(table, columnName, column) {
+		return `ALTER TABLE ${mysql.escapeId(table)}`
+			+ ` ADD ${mysql.escapeId(`${columnName}_id`)} INT,`
+			+ ` ADD FOREIGN KEY (${mysql.escapeId(`${columnName}_id`)})`
+			+ ` REFERENCES ${mysql.escapeId(column.type)}(${mysql.escapeId(`_id`)});`;
+	}
+
 	stmtSelectTableName() {
-		return `SELECT table_name `
-			+ `FROM information_schema.tables `
-			+ `WHERE table_schema=${mysql.escape(this._database.db)};`;
+		return `SELECT table_name`
+			+ ` FROM information_schema.tables`
+			+ ` WHERE table_schema=${mysql.escape(this._database.db)};`;
 	}
 
 	stmtSetForeignKeyCheck(state) {
@@ -185,24 +253,51 @@ class Restify {
 	}
 
 	stmtInsertInto(table, record) {
-		let columns = Object.keys(record);
-		let values = columns.map((column) => {
-			record[column];
-		});
+		let columns = Object.keys(record).map((column) => {
+			let field = this._collections[table][column];
+			if(field.relation == null) {
+				return column;
+			} else if(field.master && this.isToOne(field.relation)) {
+				return `${column}_id`;
+			} else {
+				return null;
+			}
+		}).filter((column) => (column != null));
+		
+		let values = Object.keys(record).map((column) => record[column]);
+		
 
-		return `INSERT INTO ${mysql.escapeId(table)} () VALUES ();`;
-		//TODO
+		return `INSERT INTO ${mysql.escapeId(table)}`
+			+ ` (${mysql.escapeId(columns)})`
+			+ ` VALUES (${mysql.escape(values)});`;
 	}
 
+	stmtSelectFrom(table, query) {
+		let select = (query.select.indexOf('*') >= 0)
+			? Object.keys(this._collections[table]).filter((field) => {
+				return Relation[this._collections[table][field].relation] == null;
+			})
+			: query.select;
+
+		let where = Object.keys(query.where).map((column) => {
+			let crit = query.where[column];
+			if(!(crit instanceof Array))
+				crit = ['=', crit];
+			return `${mysql.escapeId(column)}${crit[0]}${mysql.escape(crit[1])}`;
+		}).join(' AND ');
 
 
+		return `SELECT ${mysql.escapeId(select)}`
+			+ ` FROM ${mysql.escapeId(table)}`
+			+ ` WHERE ${where};`;
+	}
 
 }
 
 class Connection {
 	constructor(restify) {
-		this.restify = restify;
-		this.conn = mysql.createConnection({
+		this._restify = restify;
+		this._conn = mysql.createConnection({
 			host: restify._database.host,
 			user: restify._database.user,
 			password: restify._database.pass,
@@ -213,7 +308,7 @@ class Connection {
 	async exec(sql) {
 		return new Promise((res, rej) => {
 			logger.debug(`SQL> ${sql}`);
-			this.conn.query(sql, (err, rows, fields) => {
+			this._conn.query(sql, (err, rows, fields) => {
 				if(err)
 					return rej(err);
 				return res(rows);
@@ -223,7 +318,7 @@ class Connection {
 
 	async end() {
 		return new Promise((res, rej) => {
-			this.conn.end((err) => {
+			this._conn.end((err) => {
 				if(err)
 					rej(err);
 				res();
@@ -232,19 +327,43 @@ class Connection {
 		
 	}
 
-	post(collection, item) {
-
+	async post(collection, item) {
+		let created = {};
+		for(let fieldName in item) {
+			if(item[fieldName] != null && typeof item[fieldName] === 'object') {
+				let field = this._restify._collections[collection][fieldName];
+				switch(field.relation) {
+					case Relation.OneToOne:
+					case Relation.ManyToOne:
+						created[fieldName] = await this.post(field.type, item[fieldName]);
+						item[fieldName] = created[fieldName]._id;
+						break;
+					case Relation.OneToMany:
+					case Relation.ManyToMany:
+						created[fieldName] = [];
+						for(let child of item[fieldName]) {
+							created[fieldName].push(await this.post(field.type, child));
+						}
+						item[fieldName] = created[fieldName].map((obj) => obj._id);
+						break;
+				}
+			}
+		}
+		let res = await this.exec(this._restify.stmtInsertInto(collection, item));
+		created._id = res.insertId;
+		return created;
 	}
 
-	get() {
-	
+	async get(collection, q) {
+		let res = await this.exec(this._restify.stmtSelectFrom(collection, q));
+		return res;
 	}
 
 	put() {
 
 	}
 
-	delete() {
+	delete(collection) {
 
 	}
 

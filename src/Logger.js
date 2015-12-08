@@ -9,7 +9,7 @@ let logger = new winston.Logger({
 	},
 	transports: [
 		new winston.transports.Console({
-			level: 'debug',
+			level: 'info',
 			colorize: true
 		}),
 		new winston.transports.File({
@@ -18,6 +18,10 @@ let logger = new winston.Logger({
 		})
 	]
 });
+
+logger.setConsoleLevel = (level) => {
+	logger.transports.console.level = level;
+};
 
 
 export default logger;

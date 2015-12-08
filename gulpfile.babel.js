@@ -26,7 +26,7 @@ gulp.task('lint', () => {
 gulp.task('test', ['lint'], () => {
 	return gulp.src('test/**/*.js')
 		.pipe(babel())
-		.pipe(mocha());
+		.pipe(mocha({bail: true}));
 });
 
 gulp.task('build', ['clean'], () => {

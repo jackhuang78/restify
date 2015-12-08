@@ -1,7 +1,9 @@
 import mysql from 'mysql';
+import Enum from 'es6-enum';
 
 describe('some test', () => {
 	it('should do some test', () => {
-		console.log(mysql.escape([1,'abc',true]));
+		var obj = Object.assign({}, {a:123});
+		console.log('obj is', obj);
 	});
 });
