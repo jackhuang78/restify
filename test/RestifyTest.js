@@ -1,10 +1,12 @@
 import assert from 'assert';
 import chai, {expect} from 'chai';
 import chaiSubset from 'chai-subset';
+import chaiDatetime from 'chai-datetime';
 import Restify from '../src/Restify';
 import logger from '../src/Logger';
 
 chai.use(chaiSubset);
+chai.use(chaiDatetime);
 
 let config = {
 	database: {host: 'localhost', user: 'root', pass: '', db: 'restify'},
@@ -128,16 +130,18 @@ describe('Restify', () => {
 		});
 
 		it('should query items by field', async (done) => {
+			logger.setConsoleLevel('debug');
 			try {
 				let res1 = await conn.post('Person', item1);
 				let res2 = await conn.post('Person', item2);
 				expect(res1).to.have.property('_id');
 				expect(res2).to.have.property('_id');
 				
-
 				let items = await conn.get('Person', {
 					select: ['*'],
 					where: {age: ['>', 30]}
+
+
 				});
 				expect(items.length).to.equal(1);
 				expect(items).to.containSubset([Object.assign(item2, {_id: res2._id})]);

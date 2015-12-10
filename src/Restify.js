@@ -273,16 +273,13 @@ class Restify {
 	}
 
 	stmtSelectFrom(table, query) {
-		let select = (query.select.indexOf('*') >= 0)
-			? Object.keys(this._collections[table]).filter((field) => {
-				return Relation[this._collections[table][field].relation] == null;
-			})
-			: query.select;
-
-		let where = Object.keys(query.where).map((column) => {
-			let crit = query.where[column];
-			if(!(crit instanceof Array))
-				crit = ['=', crit];
+		let select = Object.keys(query).filter((column) => {
+			return Relation[this._collections[table][column].relation] == null;
+		});
+		let where = Object.keys(query).filter((column) => {
+			return query[column] !== undefined;
+		}).map((column) => {
+			let crit = (query[column] instanceof Array) ? query[column]: ['=', query[column]];
 			return `${mysql.escapeId(column)}${crit[0]}${mysql.escape(crit[1])}`;
 		}).join(' AND ');
 
@@ -355,7 +352,15 @@ class Connection {
 	}
 
 	async get(collection, q) {
-		let res = await this.exec(this._restify.stmtSelectFrom(collection, q));
+		if(q.select != null && q.select.length != 0 && q.select[0] === '*')
+			q.select = Object.keys(this._restify._collections[collection]);
+
+		for(let fieldName of q.select) {
+			if(q.where[fieldName] === undefined) {
+				q.where[fieldName] = undefined;	// probably not a good idea...
+			}
+		}
+		let res = await this.exec(this._restify.stmtSelectFrom(collection, q.where));
 		return res;
 	}
 
