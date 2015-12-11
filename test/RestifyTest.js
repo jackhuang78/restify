@@ -67,8 +67,14 @@ describe('Restify', () => {
 			done();
 		});
 
+		after((done) => {
+			logger.setConsoleLevel('info');
+			done();
+		});
+
 		it('should drop all tables and recreate them', async (done) => {
 			try {
+				logger.setConsoleLevel('debug');
 				await restify.reset();
 				await restify.sync();
 				done();

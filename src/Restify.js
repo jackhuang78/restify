@@ -12,10 +12,18 @@ const Relation = {
 };
 
 const Type = {
+	int: 'int',
+	date: 'date',
+	string: 'string'
+};
+
+const Type2 = {
 	int: 'INT',
 	date: 'DATETIME',
 	string: 'VARCHAR'
 };
+
+const ID = '_id';
 
 /**
  * @class Restify
@@ -62,8 +70,7 @@ class Restify {
 				let field = config.schema[collectionName][fieldName];
 
 				this._collections[collectionName][fieldName] = {
-					type: (field.type == null) ? 'string' : field.type,
-					size: (field.type == null) ? 255 : null,
+					type: (field.type == null) ? Type.string : field.type,
 					nullable: (field.nullable) ? true : false,
 					relation: Relation[field.relation],
 					master: Relation[field.relation] ? true : false,
@@ -138,7 +145,9 @@ class Restify {
 
 		// create table with id
 		for(let collectionName of Object.keys(this._collections)) {
-			await conn.exec(this.stmtCreateTable(collectionName, '_id'));
+			await conn.exec(this.stmtCreateTable({
+				table: collectionName
+			}));
 		}
 
 		// add columns
@@ -151,7 +160,10 @@ class Restify {
 					continue;
 				
 				if(!field.relation) {
-					await conn.exec(this.stmtAlterTableAdd(collectionName, fieldName, field));
+					await conn.exec(this.stmtAlterTableAdd({
+						table: collectionName, 
+						column: {name: fieldName, type: field.type}
+					}));
 					continue;
 				}
 
@@ -161,10 +173,18 @@ class Restify {
 				switch(field.relation) {
 					case Relation.OneToOne:
 					case Relation.ManyToOne:
-						await conn.exec(this.stmtAlterTableAddFk(collectionName, fieldName, field));
+						await conn.exec(this.stmtAlterTableAddFk({
+							table: collectionName,
+							column: {name: fieldName, type: field.type}
+						}));
 						break;
 					case Relation.ManyToMany:
-						await conn.exec(this.stmtCreateJoinTable(collectionName, '_id', fieldName, field.type, '_id'));
+						await conn.exec(this.stmtCreateJoinTable({
+							table: collectionName, 
+							master: collectionName,
+							slave: field.type,
+							field: fieldName
+						}));
 						break;	
 				}
 			}
@@ -209,33 +229,47 @@ class Restify {
 	//	SQL statements
 	//===============================
 	
-	stmtCreateTable(table, id) {
-		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(table)} (`
-			+ `${mysql.escapeId(id)} INT AUTO_INCREMENT, PRIMARY KEY(${mysql.escapeId(id)})`
+	toSqlType(type) {
+		switch(type) {
+			case Type.int:
+				return 'INT';
+			case Type.date:
+				return 'DATETIME';
+			case Type.string:
+				return 'VARCHAR(255)';
+			default:
+				throw Error(`Undefined type ${type}`);
+		}
+	}
+	
+	stmtCreateTable(p) {
+		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(p.table)} (`
+			+ `${mysql.escapeId(ID)} INT AUTO_INCREMENT, `
+			+ `PRIMARY KEY(${mysql.escapeId(ID)})`
 			+ `);`;
 	}
 
-	stmtCreateJoinTable(master, masterId, field, slave, slaveId) {
-		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(`${master}_${field}`)} (`
-			+ ` ${mysql.escapeId(`_id`)} INT,`
-			+ ` FOREIGN KEY (${mysql.escapeId(`_id`)}) `
-			+ ` REFERENCES ${mysql.escapeId(master)}(${mysql.escapeId(masterId)}),`
-			+ ` ${mysql.escapeId(`${field}_id`)} INT,`
-			+ ` FOREIGN KEY (${mysql.escapeId(`${field}_id`)})`
-			+ ` REFERENCES ${mysql.escapeId(slave)}(${mysql.escapeId(slaveId)}));`;
+	stmtCreateJoinTable(p) {
+		return `CREATE TABLE IF NOT EXISTS ${mysql.escapeId(`${p.master}_${p.field}`)} (`
+			+ ` ${mysql.escapeId(ID)} INT,`
+			+ ` FOREIGN KEY (${mysql.escapeId(ID)}) `
+			+ ` REFERENCES ${mysql.escapeId(p.master)}(${mysql.escapeId(ID)}),`
+			+ ` ${mysql.escapeId(p.field)} INT,`
+			+ ` FOREIGN KEY (${mysql.escapeId(p.field)})`
+			+ ` REFERENCES ${mysql.escapeId(p.slave)}(${mysql.escapeId(ID)}));`;
 	}
 
-	stmtAlterTableAdd(table, columnName, column) {
-		let size = column.size ? `(${column.size})` : ``;
-		return `ALTER TABLE ${mysql.escapeId(table)}`
-			+ ` ADD ${mysql.escapeId(columnName)} ${Type[column.type]}${size};`;
+	stmtAlterTableAdd(p) {
+		//let size = column.size ? `(${column.size})` : ``;
+		return `ALTER TABLE ${mysql.escapeId(p.table)}`
+			+ ` ADD ${mysql.escapeId(p.column.name)} ${this.toSqlType(p.column.type)};`;
 	}
 
-	stmtAlterTableAddFk(table, columnName, column) {
-		return `ALTER TABLE ${mysql.escapeId(table)}`
-			+ ` ADD ${mysql.escapeId(`${columnName}_id`)} INT,`
-			+ ` ADD FOREIGN KEY (${mysql.escapeId(`${columnName}_id`)})`
-			+ ` REFERENCES ${mysql.escapeId(column.type)}(${mysql.escapeId(`_id`)});`;
+	stmtAlterTableAddFk(p) {
+		return `ALTER TABLE ${mysql.escapeId(p.table)}`
+			+ ` ADD ${mysql.escapeId(p.column.name)} INT,`
+			+ ` ADD FOREIGN KEY (${mysql.escapeId(p.column.name)})`
+			+ ` REFERENCES ${mysql.escapeId(p.column.type)}(${mysql.escapeId(ID)});`;
 	}
 
 	stmtSelectTableName() {
@@ -258,7 +292,7 @@ class Restify {
 			if(field.relation == null) {
 				return column;
 			} else if(field.master && this.isToOne(field.relation)) {
-				return `${column}_id`;
+				return column;
 			} else {
 				return null;
 			}
