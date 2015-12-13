@@ -5,6 +5,8 @@ import eslint from 'gulp-eslint';
 import jsdoc from 'gulp-jsdoc';
 import del from 'del';
 import polyfill from 'babel-polyfill';
+import {argv} from 'yargs';
+
 
 
 
@@ -24,7 +26,17 @@ gulp.task('lint', () => {
 });
 
 gulp.task('test', ['lint'], () => {
-	return gulp.src('test/**/*.js')
+	let file = (argv.f != null) 
+		? argv.f : '**/*';
+	return gulp.src(`test/${file}.js`)
+		.pipe(babel())
+		.pipe(mocha({bail: true}));
+});
+
+gulp.task('testq', () => {
+	let file = (argv.f != null) 
+		? argv.f : '**/*';
+	return gulp.src(`test/${file}.js`)
 		.pipe(babel())
 		.pipe(mocha({bail: true}));
 });
