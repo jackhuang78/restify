@@ -15,13 +15,9 @@ const Relation = {
 const Type = {
 	int: 'int',
 	date: 'date',
-	string: 'string'
-};
-
-const Type2 = {
-	int: 'INT',
-	date: 'DATETIME',
-	string: 'VARCHAR'
+	string: 'string',
+	boolean: 'boolean',
+	double: 'double'
 };
 
 const ID = '_id';
@@ -239,6 +235,10 @@ class Restify {
 				return 'DATETIME';
 			case Type.string:
 				return 'VARCHAR(255)';
+			case Type.boolean:
+				return 'BOOLEAN';
+			case Type.double:
+				return 'FLOAT';
 			default:
 				throw Error(`Undefined type ${type}`);
 		}
@@ -401,6 +401,15 @@ class Connection {
 			select: select,
 			where: where
 		}));
+
+		// TODO this seems very inefficient
+		for(let item of res) {
+			for(let field in item) {
+				if(this._restify._collections[collection][field].type === Type.boolean) {
+					item[field] = (item[field] === 1);
+				}
+			}
+		}
 
 		return res;
 	}

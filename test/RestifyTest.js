@@ -14,7 +14,9 @@ let config = {
 		Person: {
 			name: {nullable: false},
 			dateOfBirth: {type: 'date'},
-			age: {type: 'int'}
+			age: {type: 'int'},
+			height: {type: 'double'},
+			graduated: {type: 'boolean'}
 		},
 		Email: {
 			address: {nullable: false},
@@ -126,7 +128,7 @@ describe('Restify', () => {
 		});
 
 		let item0 = {};
-		let item1 = {name: 'Jack', age: 26, dateOfBirth: new Date('12/17/1989')};
+		let item1 = {name: 'Jack', age: 26, dateOfBirth: new Date('12/17/1989'), height: 170.1, graduated: true};
 		let item2 = {name: 'Joe', age: 40};
 		let item3 = {address: 'jack.huang78@gmail.com', 'owner':{name: 'Jack'}};
 
@@ -163,8 +165,10 @@ describe('Restify', () => {
 
 				expect(items[0]).to.have.property('_id', id);
 				expect(items[0]).to.have.property('name', item1.name);
+				expect(items[0]).to.have.property('age', item1.age);
+				expect(items[0]).to.have.property('height', item1.height);
+				expect(items[0]).to.have.property('graduated', item1.graduated);
 				expect(items[0].dateOfBirth).to.equalDate(item1.dateOfBirth);
-
 
 				done();
 			} catch(e) {
