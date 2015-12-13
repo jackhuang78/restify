@@ -9,8 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "chai-datetime": "^1.4.0",
-    "es6-enum": "^0.2.2",
     "mysql": "^2.9.0",
     "winston": "^2.1.0"
   },
@@ -27,8 +25,8 @@
     "babel-preset-stage-0": "^6.1.18",
     "babel-runtime": "^6.2.0",
     "chai": "^3.4.1",
+    "chai-datetime": "^1.4.0",
     "chai-subset": "^1.2.0",
-    "chai-things": "^0.2.0",
     "del": "^2.1.0",
     "eslint": "^1.9.0",
     "gulp": "^3.9.0",
@@ -39,6 +37,7 @@
     "jsdoc": "^3.3.3",
     "mocha": "^2.3.3",
     "react": "^0.14.3",
-    "webpack": "^1.12.9"
+    "webpack": "^1.12.9",
+    "yargs": "^3.31.0"
   }
 }
