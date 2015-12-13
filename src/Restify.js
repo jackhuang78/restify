@@ -414,6 +414,16 @@ class Connection {
 		return res;
 	}
 
+	async put(collection, item) {
+		let res = await this.exec(this._restify.stmtUpdateSet({
+			table: collection,
+			set: item,
+			where: {_id: item._id}
+		}));
+
+		return res;
+	}
+
 	async delete(collection, query) {
 		let select = Object.keys(query).filter((column) => {
 			return this._restify._collections[collection][column] != null;
@@ -462,9 +472,6 @@ class Connection {
 	// 	return res;
 	// }
 
-	put() {
-
-	}
 
 	
 

@@ -108,8 +108,8 @@ describe('Restify', () => {
 		beforeEach(async (done) => {
 			await restify.reset();
 			await restify.sync();
-			debugOn();
 			conn = restify.connect();
+			//debugOn();
 			done();
 		});
 
@@ -169,6 +169,22 @@ describe('Restify', () => {
 				expect(items[0]).to.have.property('height', item1.height);
 				expect(items[0]).to.have.property('graduated', item1.graduated);
 				expect(items[0].dateOfBirth).to.equalDate(item1.dateOfBirth);
+
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
+
+		it('should udpate an item', async (done) => {
+			try {
+				let res = await conn.post('Person', item1);
+				let id = res._id;
+
+				res = await conn.put('Person', {_id: id, name: 'Jack Huang'});
+
+				let items = await conn.get('Person', {'*': undefined, _id: id});
+				expect(items[0]).to.have.property('name', 'Jack Huang');
 
 				done();
 			} catch(e) {
