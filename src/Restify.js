@@ -20,6 +20,13 @@ const Type = {
 	double: 'double'
 };
 
+const Store = {
+	Main: 'Main',
+	Target: 'Target',
+	MainJoint: 'MainJoint',
+	TargetJoint: 'TargetJoint'
+};
+
 const ID = '_id';
 const ALL = '*';
 
@@ -101,19 +108,19 @@ class Restify {
 				let field = collection[fieldName];
 				switch(field.relation) {
 					case Relation.OneToOne:
-						field.isInMainTable = field.master;
+						field.store = field.master ? Store.Main : Store.Target;
 						break;
 					case Relation.ManyToOne:
-						field.isInMainTable = true;
+						field.store = Store.Main;
 						break;
 					case Relation.OneToMany:
-						field.isInMainTable = false;
+						field.store = Store.Target;
 						break;
 					case Relation.ManyToMany:
-						field.isInMainTable = false;
+						field.store = field.master ? Store.MainJoint : Store.TargetJoint;
 						break;
 					default:
-						field.isInMainTable = true;
+						field.store = Store.Main;
 				}
 			}
 		}
@@ -385,15 +392,7 @@ class Connection {
 		
 		// only actual fields and toOne master relation is stored in the main table
 		let columns = Object.keys(item).filter((column) => {
-			return this._restify._collections[collection][column].isInMainTable;
-			// if(field == null)
-			// 	return false;
-			// else if(field.relation == null)
-			// 	return true;
-			// else if(field.relation === Relation.OneToOne || field.relation === Relation.ManyToOne)
-			// 	return field.master;
-			// else 
-			// 	return false;
+			return this._restify._collections[collection][column].store === Store.Main;
 		});
 
 		let values = columns.map((column) => item[column]);
@@ -410,41 +409,63 @@ class Connection {
 	}
 
 	async get(collection, query) {
-		let selectAll = Object.keys(query).indexOf(ALL) >= 0;
+		if(Object.keys(query).indexOf(ALL) >= 0) {
+			for(let fieldName in this._restify._collections[collection]) {
+				if(query[fieldName] === undefined)
+					query[fieldName] = undefined;
+			}
+			delete query[ALL];
+		}
+		if(Object.keys(query).indexOf(ID) < 0)
+			query[ID] = undefined;
 
-		// querying main table: field and toOne relations
-		let select = selectAll 
-				? [ALL] //Object.keys(this._restify._collections[collection])
-				: Object.keys(query).filter((column) => {
-						return this._restify._collections[collection][column].isInMainTable;
-					});
+		let select = Object.keys(query).filter((column) => {
+			return this._restify._collections[collection][column].store === Store.Main;
+		});
 		
 		let where = {};
 		for(let fieldName in query) {
-			if(fieldName !== ALL && this._restify._collections[collection][fieldName].isInMainTable) {
+			if(this._restify._collections[collection][fieldName].store === Store.Main && query[fieldName] !== undefined) {
 				where[fieldName] = query[fieldName];
 			}
 		}
-		// Object.keys(query).filter((column) => {
-		// 	return this._restify._collections[collection][column].isInMainTable;
-		// }).map((column) => {
-		// 	return 
-		// })
 
-
-		for(let column of select) {
-			if(column !== ALL && query[column] !== undefined)
-				where[column] = query[column];
-		}
-
-		let res = await this.exec(this._restify.stmtSelectFrom({
+		let items = await this.exec(this._restify.stmtSelectFrom({
 			table: collection,
 			select: select,
 			where: where
 		}));
 
+		for(let item of items) {
+			// query for slave fields
+			for(let fieldName in query) {
+				if(fieldName === ALL)
+					continue;
+				let field = this._restify._collections[collection][fieldName];
+				
+				if(field.store === Store.Target) {
+					let res = await this.exec(this._restify.stmtSelectFrom({
+						table: field.type,
+						select: [ID],
+						where: {[field.as]: item._id}
+					}));
+
+					console.log('res', res);
+
+					if(field.relation === Relation.OneToOne) {
+						item[fieldName] = res.length > 0 ? res[0]._id : null;
+					} else {
+						item[fieldName] = res.map((r) => r._id);
+					}
+
+				}
+			}
+		}
+
+
+		// for boolean field, convert result from int to boolean
 		// TODO this seems very inefficient
-		for(let item of res) {
+		for(let item of items) {
 			for(let field in item) {
 				if(this._restify._collections[collection][field].type === Type.boolean) {
 					item[field] = (item[field] === 1);
@@ -452,7 +473,7 @@ class Connection {
 			}
 		}
 
-		return res;
+		return items;
 	}
 
 	async put(collection, item) {

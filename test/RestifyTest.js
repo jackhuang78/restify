@@ -35,8 +35,7 @@ let debugOff = () => logger.setConsoleLevel('info');
 
 
 describe('Restify', () => {
-	let restify = null;
-	let conn = null;
+	let restify, conn;
 
 
 	describe('# constructor', () => {
@@ -150,7 +149,7 @@ describe('Restify', () => {
 		});
 
 		it('should create an item with various types of fields', async (done) => {
-			//debugOn();
+			debugOn();
 			try {
 				let item = {
 					name: 'Jack', 
@@ -163,6 +162,7 @@ describe('Restify', () => {
 				let id = res._id;
 				let items = await conn.get('Person', {'*': undefined, _id: id});
 
+				expect(items).to.have.length(1);
 				expect(items[0]).to.have.property('_id', id);
 				expect(items[0]).to.have.property('name', item.name);
 				expect(items[0]).to.have.property('age', item.age);
@@ -195,19 +195,25 @@ describe('Restify', () => {
 		it('should set ManyToOne relation', async (done) => {
 			debugOn();
 			try {
-				let res = await conn.post('Person', {});
+				let res, items;
+
+				res = await conn.post('Person', {});
 				let personId = res._id;
 
 				res = await conn.post('Email', {owner: personId});
-				let emailId = res._id;
+				let email1Id = res._id;
+				res = await conn.post('Email', {owner: personId});
+				let email2Id = res._id;
 
-				let items = await conn.get('Email', {'*': undefined, _id: emailId});
+				items = await conn.get('Email', {'*': undefined, _id: email1Id});
+				expect(items[0]).to.have.property('owner', personId);
+				items = await conn.get('Email', {'*': undefined, _id: email2Id});
 				expect(items[0]).to.have.property('owner', personId);
 
-				items = await conn.get('Person', {'*': undefined, _id: emailId});
+				items = await conn.get('Person', {'*': undefined, _id: email1Id});
 				expect(items[0]).to.have.property('emails')
 						.that.is.an('array')
-						.that.contains(emailId);
+						.that.containSubset([email1Id, email2Id]);
 
 				done();
 			} catch(e) {

@@ -18,9 +18,6 @@ describe('quick test', () => {
 	// 
 	
 	it('should do some test', () => {
-		console.log(mysql.escape([[1, 'abc', null], [2, 'def', null]]));
-		console.log(mysql.escape([1, 'abc', null]));
-		console.log(mysql.escapeId([['abc', 'def']]));
-		console.log(mysql.escape({abc:123, def:'jack', ghi: null}));
+		
 	});
 });
