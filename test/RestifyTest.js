@@ -18,6 +18,10 @@ let config = {
 			height: {type: 'double'},
 			graduated: {type: 'boolean'}
 		},
+		Resume: {
+			yearsOfExperience: {type: 'int'},
+			owner: {type: 'Person', 'relation': 'OneToOne', as: 'resume'}
+		},
 		Email: {
 			address: {nullable: false},
 			owner: {type: 'Person', relation: 'ManyToOne', as: 'emails'}
@@ -240,6 +244,38 @@ describe('Restify', () => {
 				expect(items[0]).to.have.property('emails')
 						.that.is.an('array')
 						.that.containSubset([email1Id, email2Id]);
+
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
+
+		it('should create with OneToOne relation', async (done) => {
+			try {
+				//debugOn();
+				let res, items;
+
+				res = await conn.post('Person', {});
+				let person1Id = res._id;
+				res = await conn.post('Resume', {owner: person1Id});
+				let resume1Id = res._id;
+
+				items = await conn.get('Resume', {_id: resume1Id, 'owner': undefined});
+				expect(items[0]).to.have.property('owner', person1Id);
+				items = await conn.get('Person', {_id: person1Id, 'resume': undefined});
+				expect(items[0]).to.have.property('resume', resume1Id);
+
+				res = await conn.post('Resume', {});
+				let resume2Id = res._id;				
+				res = await conn.post('Person', {resume: resume2Id});
+				let person2Id = res._id;
+
+				items = await conn.get('Resume', {_id: resume2Id, 'owner': undefined});
+				expect(items[0]).to.have.property('owner', person2Id);
+				items = await conn.get('Person', {_id: person2Id, 'resume': undefined});
+				expect(items[0]).to.have.property('resume', resume2Id);
+
 
 				done();
 			} catch(e) {

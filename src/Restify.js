@@ -394,6 +394,8 @@ class Connection {
 	async post(collection, item) {
 		let created = {};
 		
+		//console.log('POST', collection, item);
+
 		// only actual fields and toOne master relation is stored in the main table
 		let columns = Object.keys(item).filter((fieldName) => {
 			return this._restify._collections[collection][fieldName].store === Store.Main;
