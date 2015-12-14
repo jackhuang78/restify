@@ -35,10 +35,13 @@ let debugOff = () => logger.setConsoleLevel('info');
 
 
 describe('Restify', () => {
+	let restify = null;
+	let conn = null;
+
 
 	describe('# constructor', () => {
 		it('should instanciate properly', (done) => {
-			let restify = new Restify(config);
+			restify = new Restify(config);
 			expect(restify).to.be.not.null;
 			expect(restify._database).to.deep.equal(config.database);
 			
@@ -60,17 +63,14 @@ describe('Restify', () => {
 			expect(restify.fields('Person')).to.include('emails');
 			expect(restify.fields('Person')).to.include('organization');
 
+			//console.log(restify._collections);
+
 
 			done();
 		});
 	});
 
-
-
-
 	describe('# setup', () => {
-		let restify = null;
-
 		before((done) => {
 			restify = new Restify(config);
 			//debugOn();
@@ -96,10 +96,7 @@ describe('Restify', () => {
 
 	});
 
-	describe('# sigle table crud', () => {
-		let restify = null;
-		let conn = restify;
-
+	describe('# single table crud', () => {
 		before((done) => {
 			restify = new Restify(config);
 			done();
@@ -127,14 +124,9 @@ describe('Restify', () => {
 			done();
 		});
 
-		let item0 = {};
-		let item1 = {name: 'Jack', age: 26, dateOfBirth: new Date('12/17/1989'), height: 170.1, graduated: true};
-		let item2 = {name: 'Joe', age: 40};
-		let item3 = {address: 'jack.huang78@gmail.com', 'owner':{name: 'Jack'}};
-
 		it('should create an item, read the item, and delete the item', async (done) => {
 			try {
-				let res = await conn.post('Person', item0);
+				let res = await conn.post('Person', {});
 				expect(res).to.be.not.null;
 				expect(res).to.have.property('_id', 1);
 				let id = res._id;
@@ -158,17 +150,25 @@ describe('Restify', () => {
 		});
 
 		it('should create an item with various types of fields', async (done) => {
+			//debugOn();
 			try {
-				let res = await conn.post('Person', item1);
+				let item = {
+					name: 'Jack', 
+					age: 26, 
+					dateOfBirth: new Date('12/17/1989'), 
+					height: 170.1, 
+					graduated: true
+				};
+				let res = await conn.post('Person', item);
 				let id = res._id;
 				let items = await conn.get('Person', {'*': undefined, _id: id});
 
 				expect(items[0]).to.have.property('_id', id);
-				expect(items[0]).to.have.property('name', item1.name);
-				expect(items[0]).to.have.property('age', item1.age);
-				expect(items[0]).to.have.property('height', item1.height);
-				expect(items[0]).to.have.property('graduated', item1.graduated);
-				expect(items[0].dateOfBirth).to.equalDate(item1.dateOfBirth);
+				expect(items[0]).to.have.property('name', item.name);
+				expect(items[0]).to.have.property('age', item.age);
+				expect(items[0]).to.have.property('height', item.height);
+				expect(items[0]).to.have.property('graduated', item.graduated);
+				expect(items[0].dateOfBirth).to.equalDate(item.dateOfBirth);
 
 				done();
 			} catch(e) {
@@ -178,13 +178,36 @@ describe('Restify', () => {
 
 		it('should udpate an item', async (done) => {
 			try {
-				let res = await conn.post('Person', item1);
+				let res = await conn.post('Person', {name: 'Jack'});
 				let id = res._id;
 
 				res = await conn.put('Person', {_id: id, name: 'Jack Huang'});
 
 				let items = await conn.get('Person', {'*': undefined, _id: id});
 				expect(items[0]).to.have.property('name', 'Jack Huang');
+
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
+
+		it('should set ManyToOne relation', async (done) => {
+			debugOn();
+			try {
+				let res = await conn.post('Person', {});
+				let personId = res._id;
+
+				res = await conn.post('Email', {owner: personId});
+				let emailId = res._id;
+
+				let items = await conn.get('Email', {'*': undefined, _id: emailId});
+				expect(items[0]).to.have.property('owner', personId);
+
+				items = await conn.get('Person', {'*': undefined, _id: emailId});
+				expect(items[0]).to.have.property('emails')
+						.that.is.an('array')
+						.that.contains(emailId);
 
 				done();
 			} catch(e) {
@@ -262,6 +285,7 @@ describe('Restify', () => {
 		// });
 
 	});
+
 	
 
 });

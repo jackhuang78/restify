@@ -93,6 +93,30 @@ class Restify {
 				}
 			}
 		}
+
+		// add some more metadata
+		for(let collectionName in this._collections) {
+			let collection = this._collections[collectionName];
+			for(let fieldName in collection) {
+				let field = collection[fieldName];
+				switch(field.relation) {
+					case Relation.OneToOne:
+						field.isInMainTable = field.master;
+						break;
+					case Relation.ManyToOne:
+						field.isInMainTable = true;
+						break;
+					case Relation.OneToMany:
+						field.isInMainTable = false;
+						break;
+					case Relation.ManyToMany:
+						field.isInMainTable = false;
+						break;
+					default:
+						field.isInMainTable = true;
+				}
+			}
+		}
 	}
 
 	/**
@@ -321,7 +345,7 @@ class Restify {
 			+ ` WHERE ${this.stmtFormatWhere(p.where)};`;
 	}
 
-	
+
 }
 
 class Connection {
@@ -361,15 +385,15 @@ class Connection {
 		
 		// only actual fields and toOne master relation is stored in the main table
 		let columns = Object.keys(item).filter((column) => {
-			let field = this._restify._collections[collection][column];
-			if(field == null)
-				return false;
-			else if(field.relation == null)
-				return true;
-			else if(field.relation === Relation.OneToOne || field.relation === Relation.ManyToOne)
-				return field.master;
-			else 
-				return false;
+			return this._restify._collections[collection][column].isInMainTable;
+			// if(field == null)
+			// 	return false;
+			// else if(field.relation == null)
+			// 	return true;
+			// else if(field.relation === Relation.OneToOne || field.relation === Relation.ManyToOne)
+			// 	return field.master;
+			// else 
+			// 	return false;
 		});
 
 		let values = columns.map((column) => item[column]);
@@ -386,11 +410,28 @@ class Connection {
 	}
 
 	async get(collection, query) {
-		let select = Object.keys(query).filter((column) => {
-			return column === ALL || this._restify._collections[collection][column] != null;
-		});
+		let selectAll = Object.keys(query).indexOf(ALL) >= 0;
+
+		// querying main table: field and toOne relations
+		let select = selectAll 
+				? [ALL] //Object.keys(this._restify._collections[collection])
+				: Object.keys(query).filter((column) => {
+						return this._restify._collections[collection][column].isInMainTable;
+					});
 		
 		let where = {};
+		for(let fieldName in query) {
+			if(fieldName !== ALL && this._restify._collections[collection][fieldName].isInMainTable) {
+				where[fieldName] = query[fieldName];
+			}
+		}
+		// Object.keys(query).filter((column) => {
+		// 	return this._restify._collections[collection][column].isInMainTable;
+		// }).map((column) => {
+		// 	return 
+		// })
+
+
 		for(let column of select) {
 			if(column !== ALL && query[column] !== undefined)
 				where[column] = query[column];
