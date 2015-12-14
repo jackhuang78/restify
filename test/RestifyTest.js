@@ -149,8 +149,8 @@ describe('Restify', () => {
 		});
 
 		it('should create an item with various types of fields', async (done) => {
-			debugOn();
 			try {
+				//debugOn();
 				let item = {
 					name: 'Jack', 
 					age: 26, 
@@ -192,14 +192,13 @@ describe('Restify', () => {
 			}
 		});
 
-		it('should set ManyToOne relation', async (done) => {
-			debugOn();
+		it('should create with ManyToOne relation', async (done) => {
 			try {
+				//debugOn();
 				let res, items;
 
 				res = await conn.post('Person', {});
 				let personId = res._id;
-
 				res = await conn.post('Email', {owner: personId});
 				let email1Id = res._id;
 				res = await conn.post('Email', {owner: personId});
@@ -210,6 +209,33 @@ describe('Restify', () => {
 				items = await conn.get('Email', {'*': undefined, _id: email2Id});
 				expect(items[0]).to.have.property('owner', personId);
 
+				items = await conn.get('Person', {'*': undefined, _id: email1Id});
+				expect(items[0]).to.have.property('emails')
+						.that.is.an('array')
+						.that.containSubset([email1Id, email2Id]);
+
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
+
+		it('should create with OneToMany relation', async (done) => {
+			try {
+				//debugOn();
+				let res, items;
+
+				res = await conn.post('Email', {});
+				let email1Id = res._id;
+				res = await conn.post('Email', {});
+				let email2Id = res._id;
+				res = await conn.post('Person', {emails: [email1Id, email2Id]});
+				let personId = res._id;
+
+				items = await conn.get('Email', {'*': undefined, _id: email1Id});
+				expect(items[0]).to.have.property('owner', personId);
+				items = await conn.get('Email', {'*': undefined, _id: email2Id});
+				expect(items[0]).to.have.property('owner', personId);
 				items = await conn.get('Person', {'*': undefined, _id: email1Id});
 				expect(items[0]).to.have.property('emails')
 						.that.is.an('array')

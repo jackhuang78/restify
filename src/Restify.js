@@ -27,6 +27,7 @@ const Store = {
 	TargetJoint: 'TargetJoint'
 };
 
+
 const ID = '_id';
 const ALL = '*';
 
@@ -320,9 +321,12 @@ class Restify {
 	}
 
 	stmtFormatWhere(where) {
-		return Object.keys(where).map((field) => {
-			return mysql.escape({[field]: where[field]});
-		}).join(' AND ');
+		return '(' + Object.keys(where).map((field) => {
+			let vals = (where[field] instanceof Array) ? where[field] : [where[field]];
+			return vals.map((val) => {
+				return mysql.escape({[field]: val});
+			}).join(' OR ');
+		}).join(') AND (') + ')';
 	}
 
 	//=======
@@ -391,11 +395,11 @@ class Connection {
 		let created = {};
 		
 		// only actual fields and toOne master relation is stored in the main table
-		let columns = Object.keys(item).filter((column) => {
-			return this._restify._collections[collection][column].store === Store.Main;
+		let columns = Object.keys(item).filter((fieldName) => {
+			return this._restify._collections[collection][fieldName].store === Store.Main;
 		});
 
-		let values = columns.map((column) => item[column]);
+		let values = columns.map((fieldName) => item[fieldName]);
 
 		let res = await this.exec(this._restify.stmtInsertInto({
 			table: collection,
@@ -404,6 +408,23 @@ class Connection {
 		}));
 
 		created._id = res.insertId;
+
+		// update relation
+		for(let fieldName in item) {
+			let field = this._restify._collections[collection][fieldName];
+			if(field.store === Store.Target) {
+				let targetIds = (field.relation === Type.OneToOne) 
+					? [item[fieldName]] 
+					: item[fieldName];
+
+				let res = await this.exec(this._restify.stmtUpdateSet({
+					table: field.type,
+					set: {[field.as]: created._id},
+					where: {[ID]: targetIds}
+				}));
+			}
+		}
+
 
 		return created;
 	}
@@ -419,8 +440,8 @@ class Connection {
 		if(Object.keys(query).indexOf(ID) < 0)
 			query[ID] = undefined;
 
-		let select = Object.keys(query).filter((column) => {
-			return this._restify._collections[collection][column].store === Store.Main;
+		let select = Object.keys(query).filter((fieldName) => {
+			return this._restify._collections[collection][fieldName].store === Store.Main;
 		});
 		
 		let where = {};
@@ -449,8 +470,6 @@ class Connection {
 						select: [ID],
 						where: {[field.as]: item._id}
 					}));
-
-					console.log('res', res);
 
 					if(field.relation === Relation.OneToOne) {
 						item[fieldName] = res.length > 0 ? res[0]._id : null;
