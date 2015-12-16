@@ -28,7 +28,7 @@ let config = {
 		},
 		Organization: {
 			name: {nullable: false},
-			members: {type: 'Person', relation: 'ManyToMany', as: 'organization'}
+			members: {type: 'Person', relation: 'ManyToMany', as: 'organizations'}
 		}
 	}
 
@@ -64,7 +64,7 @@ describe('Restify', () => {
 			expect(restify.fields('Organization')).to.include('members');
 
 			expect(restify.fields('Person')).to.include('emails');
-			expect(restify.fields('Person')).to.include('organization');
+			expect(restify.fields('Person')).to.include('organizations');
 
 			//console.log(restify._collections);
 
@@ -283,7 +283,90 @@ describe('Restify', () => {
 			}
 		});
 
-		
+		it('should create with ManyToMany relation from master', async (done) => {
+			try {
+				//debugOn();
+				let res, items;
+
+				res = await conn.post('Person', {});
+				let person1Id = res._id;
+				res = await conn.post('Person', {});
+				let person2Id = res._id;
+				res = await conn.post('Organization', {members:[person1Id, person2Id]});
+				let org1Id = res._id;
+				res = await conn.post('Organization', {members:[person1Id, person2Id]});
+				let org2Id = res._id;
+
+				items = await conn.get('Organization', {_id: org1Id, 'members': undefined});
+				expect(items[0]).to.have.property('members')
+						.that.is.an('array')
+						.that.containSubset([person1Id, person2Id]);
+
+				items = await conn.get('Organization', {_id: org2Id, 'members': undefined});
+				expect(items[0]).to.have.property('members')
+						.that.is.an('array')
+						.that.containSubset([person1Id, person2Id]);
+
+				items = await conn.get('Person', {_id: person1Id, 'organizations': undefined});
+				expect(items[0]).to.have.property('organizations')
+						.that.is.an('array')
+						.that.containSubset([org1Id, org2Id]);
+
+				items = await conn.get('Person', {_id: person2Id, 'organizations': undefined});
+				expect(items[0]).to.have.property('organizations')
+						.that.is.an('array')
+						.that.containSubset([org1Id, org2Id]);
+
+
+
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
+
+		it('should create with ManyToMany relation from slave', async (done) => {
+			try {
+				//debugOn();
+				let res, items;
+
+				res = await conn.post('Organization', {});
+				let org1Id = res._id;
+				res = await conn.post('Organization', {});
+				let org2Id = res._id;
+				res = await conn.post('Person', {organizations: [org1Id, org2Id]});
+				let person1Id = res._id;
+				res = await conn.post('Person', {organizations: [org1Id, org2Id]});
+				let person2Id = res._id;
+				
+
+				items = await conn.get('Organization', {_id: org1Id, 'members': undefined});
+				expect(items[0]).to.have.property('members')
+						.that.is.an('array')
+						.that.containSubset([person1Id, person2Id]);
+
+				items = await conn.get('Organization', {_id: org2Id, 'members': undefined});
+				expect(items[0]).to.have.property('members')
+						.that.is.an('array')
+						.that.containSubset([person1Id, person2Id]);
+
+				items = await conn.get('Person', {_id: person1Id, 'organizations': undefined});
+				expect(items[0]).to.have.property('organizations')
+						.that.is.an('array')
+						.that.containSubset([org1Id, org2Id]);
+
+				items = await conn.get('Person', {_id: person2Id, 'organizations': undefined});
+				expect(items[0]).to.have.property('organizations')
+						.that.is.an('array')
+						.that.containSubset([org1Id, org2Id]);
+
+
+
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
 
 
 		// it('should create an item and retrieve it by ID', async (done) => {

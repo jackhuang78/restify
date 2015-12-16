@@ -424,6 +424,20 @@ class Connection {
 					set: {[field.as]: created._id},
 					where: {[ID]: targetIds}
 				}));
+			} else if(field.store === Store.MainJoint) {
+				let targetIds = item[fieldName];
+				let res = await this.exec(this._restify.stmtInsertInto({
+					table: `${collection}_${fieldName}`,
+					columns: [ID, fieldName],
+					values: targetIds.map((targetId) => [created._id, targetId])
+				}));
+			} else if(field.store === Store.TargetJoint) {
+				let targetIds = item[fieldName];
+				let res = await this.exec(this._restify.stmtInsertInto({
+					table: `${field.type}_${field.as}`,
+					columns: [ID, field.as],
+					values: targetIds.map((targetId) => [targetId, created._id])
+				}));
 			}
 		}
 
@@ -479,6 +493,20 @@ class Connection {
 						item[fieldName] = res.map((r) => r._id);
 					}
 
+				} else if(field.store === Store.MainJoint) {
+					let res = await this.exec(this._restify.stmtSelectFrom({
+						table: `${collection}_${fieldName}`,
+						select: [fieldName],
+						where: {[ID]: item[ID]}
+					}));
+					item[fieldName] = res.map((r) => r[fieldName]);
+				} else if(field.store === Store.TargetJoint) {
+					let res = await this.exec(this._restify.stmtSelectFrom({
+						table: `${field.type}_${field.as}`,
+						select: [ID],
+						where: {[field.as]: item[ID]}
+					}));
+					item[fieldName] = res.map((r) => r[ID]);
 				}
 			}
 		}
