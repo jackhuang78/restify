@@ -441,7 +441,6 @@ class Connection {
 			}
 		}
 
-
 		return created;
 	}
 
