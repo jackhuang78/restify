@@ -87,6 +87,7 @@ describe('Restify', () => {
 
 		it('should drop all tables and recreate them', async (done) => {
 			try {
+				//debugOn();
 				await restify.reset();
 				await restify.sync();
 				done();
@@ -361,6 +362,39 @@ describe('Restify', () => {
 						.that.containSubset([org1Id, org2Id]);
 
 
+
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
+
+		it('should update an item\'s relation', async (done) => {
+			try {
+				debugOn();
+				let res, items;
+
+				res = await conn.post('Person', {});
+				let personId = res._id;
+				res = await conn.post('Email', {});
+				let email1Id = res._id;
+				res = await conn.post('Email', {});
+				let email2Id = res._id;
+
+				await conn.put('Person', {_id: personId, emails: [email1Id]});
+				items = await conn.get('Person', {_id: personId, emails: undefined});
+				expect(items[0]).to.have.property('emails')
+						.that.have.length(1)
+						.that.containSubset([email1Id]);
+				await conn.put('Person', {_id: personId, emails: [email2Id]});		
+				items = await conn.get('Person', {_id: personId, emails: undefined});
+				expect(items[0]).to.have.property('emails')
+						.that.have.length(1)
+						.that.containSubset([email2Id]);
+				await conn.put('Person', {_id: personId, emails: []});		
+				items = await conn.get('Person', {_id: personId, emails: undefined});
+				expect(items[0]).to.have.property('emails')
+						.that.have.length(0);
 
 				done();
 			} catch(e) {
