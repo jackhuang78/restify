@@ -542,7 +542,7 @@ class Connection {
 			let field = this._restify._collections[collection][fieldName];
 
 			if(field.store === Store.Target) {
-				let targetIds = (field.relation === Type.OneToOne) 
+				let targetIds = (field.relation === Relation.OneToOne) 
 					? [item[fieldName]] 
 					: item[fieldName];
 

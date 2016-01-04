@@ -428,30 +428,65 @@ describe('Restify', () => {
 				let resume1Id = (await conn.post('Resume', {}))._id;
 				let resume2Id = (await conn.post('Resume', {}))._id;
 
+				// update person1.resume=resume1
+				// person1 -> resume1
+				// person2 -> null
+				// resume2 -> null
 				await conn.put('Person', {_id: person1Id, resume: resume1Id});
 				items = await conn.get('Person', {_id: person1Id, resume: undefined});
 				expect(items[0]).to.have.property('resume', resume1Id);
+				items = await conn.get('Person', {_id: person2Id, resume: undefined});
+				expect(items[0]).to.have.property('resume', null);
 				items = await conn.get('Resume', {_id: resume1Id, owner: undefined});
 				expect(items[0]).to.have.property('owner', person1Id);
+				items = await conn.get('Resume', {_id: resume2Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', null);
 
-				await conn.put('Resume', {_id: resume1Id, owner: null});
-				items = await conn.get('Resume', {_id: resume1Id, owner: undefined});
-				expect(items[0]).to.have.property('owner', null);				
-				items = await conn.get('Person', {_id: person1Id, resume: undefined});
-				expect(items[0]).to.have.property('resume', null);				
-
-				await conn.put('Resume', {_id: resume2Id, owner: person1Id});
+				// update person1.resume=resume2
+				// person1 -> resume2
+				// person2 -> null
+				// resume1 -> null
+				await conn.put('Person', {_id: person1Id, resume: resume2Id});
 				items = await conn.get('Person', {_id: person1Id, resume: undefined});
 				expect(items[0]).to.have.property('resume', resume2Id);
+				items = await conn.get('Person', {_id: person2Id, resume: undefined});
+				expect(items[0]).to.have.property('resume', null);
+				items = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', null);
 				items = await conn.get('Resume', {_id: resume2Id, owner: undefined});
-				expect(items[0]).to.have.property('owner', person1Id);				
-				
+				expect(items[0]).to.have.property('owner', person1Id);
+
+				// update resume2.owner=person1
+				// person1 -> null
+				// person2 -> resume2
+				// resume1 -> null
+				await conn.put('Resume', {_id: resume2Id, owner: person2Id});
+				items = await conn.get('Person', {_id: person1Id, resume: undefined});
+				expect(items[0]).to.have.property('resume', null);
+				items = await conn.get('Person', {_id: person2Id, resume: undefined});
+				expect(items[0]).to.have.property('resume', resume2Id);
+				items = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', null);
+				items = await conn.get('Resume', {_id: resume2Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', person2Id);		
+
+				// update person2.resume=null
+				// update resume1.owner=person2
+				// person1 -> null
+				// person2 -> resume1
+				// resume2 -> null
+				await conn.put('Person', {_id: person2Id, resume: null});
 				await conn.put('Resume', {_id: resume1Id, owner: person2Id});
+				items = await conn.get('Person', {_id: person1Id, resume: undefined});
+				expect(items[0]).to.have.property('resume', null);
 				items = await conn.get('Person', {_id: person2Id, resume: undefined});
 				expect(items[0]).to.have.property('resume', resume1Id);
 				items = await conn.get('Resume', {_id: resume1Id, owner: undefined});
-				expect(items[0]).to.have.property('owner', person2Id);				
+				expect(items[0]).to.have.property('owner', person2Id);
+				items = await conn.get('Resume', {_id: resume2Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', null);		
 
+				
 
 				done();
 			} catch(e) {
