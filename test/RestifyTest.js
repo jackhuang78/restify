@@ -369,9 +369,9 @@ describe('Restify', () => {
 			}
 		});
 
-		it('should update an item\'s relation', async (done) => {
+		it('should update OneToMany/ManyToOne relation', async (done) => {
 			try {
-				debugOn();
+				//debugOn();
 				let res, items;
 
 				res = await conn.post('Person', {});
@@ -386,15 +386,72 @@ describe('Restify', () => {
 				expect(items[0]).to.have.property('emails')
 						.that.have.length(1)
 						.that.containSubset([email1Id]);
+				items = await conn.get('Email', {_id: email1Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', personId);
+				
 				await conn.put('Person', {_id: personId, emails: [email2Id]});		
 				items = await conn.get('Person', {_id: personId, emails: undefined});
 				expect(items[0]).to.have.property('emails')
 						.that.have.length(1)
 						.that.containSubset([email2Id]);
+				items = await conn.get('Email', {_id: email1Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', null);
+				
 				await conn.put('Person', {_id: personId, emails: []});		
 				items = await conn.get('Person', {_id: personId, emails: undefined});
 				expect(items[0]).to.have.property('emails')
 						.that.have.length(0);
+
+				res = await conn.post('Person', {});
+				let person2Id = res._id;
+				await conn.put('Email', {_id: email1Id, owner: person2Id});
+				items = await conn.get('Email', {_id: email1Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', person2Id);
+				items = await conn.get('Person', {_id: person2Id, emails: undefined});
+				expect(items[0]).to.have.property('emails')
+						.that.have.length(1)
+						.that.containSubset([email1Id]);
+
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
+
+		it('should update OneToOne relation', async (done) => {
+			try {
+				//debugOn();
+				let res, items;
+
+				let person1Id = (await conn.post('Person', {}))._id;
+				let person2Id = (await conn.post('Person', {}))._id;
+				let resume1Id = (await conn.post('Resume', {}))._id;
+				let resume2Id = (await conn.post('Resume', {}))._id;
+
+				await conn.put('Person', {_id: person1Id, resume: resume1Id});
+				items = await conn.get('Person', {_id: person1Id, resume: undefined});
+				expect(items[0]).to.have.property('resume', resume1Id);
+				items = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', person1Id);
+
+				await conn.put('Resume', {_id: resume1Id, owner: null});
+				items = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', null);				
+				items = await conn.get('Person', {_id: person1Id, resume: undefined});
+				expect(items[0]).to.have.property('resume', null);				
+
+				await conn.put('Resume', {_id: resume2Id, owner: person1Id});
+				items = await conn.get('Person', {_id: person1Id, resume: undefined});
+				expect(items[0]).to.have.property('resume', resume2Id);
+				items = await conn.get('Resume', {_id: resume2Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', person1Id);				
+				
+				await conn.put('Resume', {_id: resume1Id, owner: person2Id});
+				items = await conn.get('Person', {_id: person2Id, resume: undefined});
+				expect(items[0]).to.have.property('resume', resume1Id);
+				items = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+				expect(items[0]).to.have.property('owner', person2Id);				
+
 
 				done();
 			} catch(e) {

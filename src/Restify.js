@@ -202,6 +202,15 @@ class Restify {
 
 				switch(field.relation) {
 					case Relation.OneToOne:
+						await conn.exec(this.stmtAlterTableAddFk({
+							table: collectionName,
+							column: {name: fieldName, type: field.type}
+						}));
+						await conn.exec(this.stmtAlterTableAddUnique({
+							table: collectionName,
+							column: {name: fieldName}
+						}));
+						break;
 					case Relation.ManyToOne:
 						await conn.exec(this.stmtAlterTableAddFk({
 							table: collectionName,
@@ -310,6 +319,12 @@ class Restify {
 		return `ALTER TABLE ${mysql.escapeId(p.table)}`
 			+ ` ADD ${mysql.escapeId(p.column.name)} ${this.toSqlType(p.column.type)};`;
 	}
+
+	stmtAlterTableAddUnique(p) {
+		return `ALTER TABLE ${mysql.escapeId(p.table)}`
+			+ ` ADD UNIQUE (${mysql.escapeId(p.column.name)});`;
+	}
+
 
 	stmtAlterTableAddFk(p) {
 		return `ALTER TABLE ${mysql.escapeId(p.table)}`
@@ -525,15 +540,17 @@ class Connection {
 		// udpate 
 		for(let fieldName in item) {
 			let field = this._restify._collections[collection][fieldName];
+
 			if(field.store === Store.Target) {
 				let targetIds = (field.relation === Type.OneToOne) 
 					? [item[fieldName]] 
 					: item[fieldName];
 
-				let res = await this.exec(this._restify.stmtUpdateSet({
+				await this.exec(this._restify.stmtUpdateSet({
 					table: field.type,
-					set: {[field.as]: null}
-				}));
+					set: {[field.as]: null},
+					where: {[field.as]: item[ID]}
+				}));				
 
 				if(targetIds.length !== 0) {
 					res = await this.exec(this._restify.stmtUpdateSet({
