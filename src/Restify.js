@@ -655,7 +655,7 @@ class Connection {
 				itemIds[fieldName] = [];
 
 				for(let child of children) {
-					let childClazz = classOf(child);
+					let childClazz = this.classOf(child);
 					if(childClazz === 'object') {
 						res = await createOrUpdate(field.type, child);
 						itemIds[fieldName].push(res);
@@ -666,7 +666,7 @@ class Connection {
 					}
 				}
 
-				if(field.relation === OneToMany) {
+				if(field.relation === Relation.OneToMany) {
 					if(field.master) {
 						throw new Error(`Cannot have OneToMany master relation`);
 					} else {
