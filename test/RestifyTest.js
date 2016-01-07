@@ -207,14 +207,20 @@ describe('Restify', () => {
 
 		it('should create OneToOne relation from master', async (done) => {
 			try {
-				done();
-			} catch(e) {
-				done(e);
-			}
-		});
+				//debugOn();
+				let res;
 
-		it('should update OneToOne relation from master', async (done) => {
-			try {
+				res = await conn.createOrUpdate('Resume', {});
+				let resumeId = res._id;
+				res = await conn.createOrUpdate('Person', {resume: resumeId});
+				let personId = res._id;
+
+				res = await conn.get('Person', {_id: personId, resume: undefined});
+				expect(res[0]).to.have.property('resume', resumeId);
+				res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+				expect(res[0]).to.have.property('owner', personId);
+
+
 				done();
 			} catch(e) {
 				done(e);
@@ -223,6 +229,59 @@ describe('Restify', () => {
 
 		it('should create OneToOne relation from slave', async (done) => {
 			try {
+				let res;
+
+				res = await conn.createOrUpdate('Person', {});
+				let personId = res._id;
+				res = await conn.createOrUpdate('Resume', {owner: personId});
+				let resumeId = res._id;
+
+				res = await conn.get('Person', {_id: personId, resume: undefined});
+				expect(res[0]).to.have.property('resume', resumeId);
+				res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+				expect(res[0]).to.have.property('owner', personId);
+
+				done();
+			} catch(e) {
+				done(e);
+			}
+		});
+
+		it('should update OneToOne relation from master', async (done) => {
+			try {
+				//debugOn();
+				let res;
+
+				res = await conn.createOrUpdate('Person', {});
+				let personId = res._id;
+				res = await conn.createOrUpdate('Resume', {});
+				let resume1Id = res._id;
+				res = await conn.createOrUpdate('Resume', {});
+				let resume2Id = res._id;
+				
+				res = await conn.get('Person', {_id: personId, resume: undefined});
+				expect(res[0]).to.have.property('resume', null);
+				res = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+				expect(res[0]).to.have.property('owner', null);
+				res = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+				expect(res[0]).to.have.property('owner', null);
+
+				res = await conn.createOrUpdate('Person', {_id: personId, resume: resume1Id});
+				res = await conn.get('Person', {_id: personId, resume: undefined});
+				expect(res[0]).to.have.property('resume', resume1Id);
+				res = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+				expect(res[0]).to.have.property('owner', personId);
+				res = await conn.get('Resume', {_id: resume2Id, owner: undefined});
+				expect(res[0]).to.have.property('owner', null);
+
+				res = await conn.createOrUpdate('Person', {_id: personId, resume: resume2Id});
+				res = await conn.get('Person', {_id: personId, resume: undefined});
+				expect(res[0]).to.have.property('resume', resume2Id);
+				res = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+				expect(res[0]).to.have.property('owner', null);
+				res = await conn.get('Resume', {_id: resume2Id, owner: undefined});
+				expect(res[0]).to.have.property('owner', personId);
+
 				done();
 			} catch(e) {
 				done(e);
@@ -231,11 +290,45 @@ describe('Restify', () => {
 
 		it('should update OneToOne relation from slave', async (done) => {
 			try {
+				//debugOn();
+				let res;
+
+				res = await conn.createOrUpdate('Resume', {});
+				let resumeId = res._id;
+				res = await conn.createOrUpdate('Person', {});
+				let person1Id = res._id;
+				res = await conn.createOrUpdate('Person', {});
+				let person2Id = res._id;
+				
+				res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+				expect(res[0]).to.have.property('owner', null);
+				res = await conn.get('Person', {_id: person1Id, resume: undefined});
+				expect(res[0]).to.have.property('resume', null);
+				res = await conn.get('Person', {_id: person2Id, resume: undefined});
+				expect(res[0]).to.have.property('resume', null);
+
+				res = await conn.createOrUpdate('Resume', {_id: resumeId, owner: person1Id});
+				res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+				expect(res[0]).to.have.property('owner', person1Id);
+				res = await conn.get('Person', {_id: person1Id, resume: undefined});
+				expect(res[0]).to.have.property('resume', resumeId);
+				res = await conn.get('Person', {_id: person2Id, resume: undefined});
+				expect(res[0]).to.have.property('resume', null);
+
+				res = await conn.createOrUpdate('Resume', {_id: resumeId, owner: person2Id});
+				res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+				expect(res[0]).to.have.property('owner', person2Id);
+				res = await conn.get('Person', {_id: person1Id, resume: undefined});
+				expect(res[0]).to.have.property('resume', null);
+				res = await conn.get('Person', {_id: person2Id, resume: undefined});
+				expect(res[0]).to.have.property('resume', resumeId);
+
 				done();
 			} catch(e) {
 				done(e);
 			}
 		});
+
 
 		it('should create ManyToOne relation from master', async (done) => {
 			try {

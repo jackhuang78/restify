@@ -591,7 +591,7 @@ class Connection {
 			if(field.relation === Relation.OneToOne || field.relation === Relation.ManyToOne) {
 				// case: ToOne relations
 				let child = value;
-				let childClass = classOf(child);
+				let childClass = this.classOf(child);
 
 				if(childClass === 'number') { 
 					// child id given
@@ -647,7 +647,7 @@ class Connection {
 			} else {
 				// case: ToMany relations
 				let children = value;
-				let childrenClass = classOf(children);
+				let childrenClass = this.classOf(children);
 				if(childrenClass !== 'array') {
 					throw new Error(`Expecting array for OneToMany relation, but got ${childrenClass}.`);
 				}
