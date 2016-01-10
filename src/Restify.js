@@ -1,4 +1,3 @@
-import Enum from 'es6-enum';
 import mysql from 'mysql';
 import logger from './Logger';
 import util from 'util';
