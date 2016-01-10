@@ -54,6 +54,7 @@ describe('Restify', () => {
 			restify = new Restify(config);
 		});
 		beforeEach(async () => {
+			debugOn();
 			await restify.reset();
 			await restify.sync();
 			conn = restify.connect();
