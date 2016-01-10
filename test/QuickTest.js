@@ -1,5 +1,4 @@
 import mysql from 'mysql';
-import Enum from 'es6-enum';
 
 describe('quick test', () => {
 	// it('should do some quick test', (done) => {
