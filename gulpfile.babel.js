@@ -10,8 +10,8 @@ import {argv} from 'yargs';
 
 
 
-gulp.task('default', () => {
-	console.log('Hello Gulp!');
+gulp.task('default', ['test'], () => {
+	
 });
 
 gulp.task('clean', () => {
