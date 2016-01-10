@@ -423,22 +423,21 @@ class Connection {
 		});
 	}
 
-	async post(collection, item) {
-		let created = {};
-		 
-		let res = await this.exec(this._restify.stmtInsertInto({
-			table: collection,
-			columns: [],
-			values: [[]]
+	async delete(collectionName, query) {
+		let collection = this._restify._collections[collectionName];
+
+		let select = Object.keys(query).filter((column) => (collection[column] != null));
+		let where = {};
+		for(let column of select) {
+			where[column] = query[column];
+		}
+
+		let res = await this.exec(this._restify.stmtDeleteFrom({
+			table: collectionName,
+			where: where
 		}));
 
-		created._id = res.insertId;
-
-		item[ID] = created[ID];
-		await this.put(collection, item);
-
-
-		return created;
+		return res;
 	}
 
 	async get(collection, query) {
@@ -507,7 +506,6 @@ class Connection {
 			}
 		}
 
-
 		// for boolean field, convert result from int to boolean
 		// TODO this seems very inefficient
 		for(let item of items) {
@@ -547,9 +545,8 @@ class Connection {
 
 
 
-
-	async createOrUpdate(collectionName, item) {
-		logger.debug(`Restify> PUT ${collectionName} ${util.inspect(item)}`);
+	async postOrPut(collectionName, item, canCreate, canUpdate) {
+		logger.debug(`Restify> POST/PUT ${collectionName} ${util.inspect(item)}`);
 
 		let res;
 		let itemIds = {};
@@ -557,29 +554,27 @@ class Connection {
 
 		// create the item if it doesn't yet exist
 		if(item._id == null) {
+			let columns = Object.keys(item).filter((fieldName) => collection[fieldName].relation == null);
+			let values = columns.map((columnName) => item[columnName]);
 			res = await this.exec(this._restify.stmtInsertInto({
 				table: collectionName,
-				columns: [],
-				values: [[]]
+				columns: columns,
+				values: [values]
 			}));
 			itemIds._id = res.insertId;
 			itemIds.created = true;
+			
 		} else {
 			itemIds._id = item._id;
+			let itemFields = this.filterFields(item, (fieldName) => collection[fieldName].relation == null);
+			if(Object.keys(itemFields).length !== 0) {
+				res = await this.exec(this._restify.stmtUpdateSet({
+					table: collectionName,
+					set: itemFields,
+					where: {_id: itemIds._id}
+				}));
+			}
 		}
-
-		// update fields
-		let itemFields = this.filterFields(item, (fieldName) => collection[fieldName].relation == null);
-		if(Object.keys(itemFields).length !== 0) {
-			res = await this.exec(this._restify.stmtUpdateSet({
-				table: collectionName,
-				set: itemFields,
-				where: {_id: itemIds._id}
-			}));
-		}
-
-		
-
 
 		for(let fieldName in item) {
 			let field = collection[fieldName];
@@ -598,7 +593,7 @@ class Connection {
 					itemIds[fieldName] = {_id: child};
 				} else if(childClass === 'object') {
 					// child needs to be created first
-					res = await createOrUpdate(field.type, child);
+					res = await postOrPut(field.type, child);
 					itemIds[fieldName] = res;
 				} else {
 					throw new Error(`Expecting object or number for OneToOne relation, but got ${childClass}.`);
@@ -657,7 +652,7 @@ class Connection {
 				for(let child of children) {
 					let childClazz = this.classOf(child);
 					if(childClazz === 'object') {
-						res = await createOrUpdate(field.type, child);
+						res = await postOrPut(field.type, child);
 						itemIds[fieldName].push(res);
 					} else if(childClazz === 'number') {
 						itemIds[fieldName].push({_id: child});
@@ -785,56 +780,7 @@ class Connection {
 		return res;
 	}
 
-	async delete(collection, query) {
-		let select = Object.keys(query).filter((column) => {
-			return this._restify._collections[collection][column] != null;
-		});
-		let where = {};
-		for(let column of select) {
-			where[column] = query[column];
-		}
 
-		let res = await this.exec(this._restify.stmtDeleteFrom({
-			table: collection,
-			where: where
-		}));
-
-		return res;
-	}
-
-	
-
-	
-	// async get(collection, q) {
-
-	// 	let select = Object.keys(q).map((field) => {
-	// 		let field = this._restify[collection][column];
-	// 		return !field.relation 
-	// 			|| (field.master && (field.relation == Relation.OneToOne || field.relation == Relation.ManyToOne));
-	// 	});
-
-	// 	let where = select.filter((field) => {
-	// 		return q[field] !== undefined;
-	// 	}).map((field) => {
-	// 		return 
-	// 	});
-
-
-
-	// 	if(q.select != null && q.select.length != 0 && q.select[0] === '*')
-	// 		q.select = Object.keys(this._restify._collections[collection]);
-
-	// 	for(let fieldName of q.select) {
-	// 		if(q.where[fieldName] === undefined) {
-	// 			q.where[fieldName] = undefined;	// probably not a good idea...
-	// 		}
-	// 	}
-	// 	let res = await this.exec(this._restify.stmtSelectFrom(collection, q.where));
-	// 	return res;
-	// }
-
-
-	
 
 	
 
@@ -850,49 +796,6 @@ class Connection {
 
 	}	
 
-
-	// async post2(collection, item) {
-	// 	let created = {};
-
-	// 	// first, insert all nested items
-	// 	// for(let fieldName in item) {
-	// 	// 	let field = this._restify[collection][fieldName];
-	// 	// 	switch(field.relation) {
-	// 	// 		case Relation.OneToOne:
-	// 	// 		case Relation.ManyToOne:
-	// 	// 			created[fieldName] = await this.post(field.type, item[fieldName]);
-	// 	// 			item[fieldName] = created[fieldName]._id;
-	// 	// 			break;
-	// 	// 		case Relation.OneToMany:
-	// 	// 		case Relation.ManyToMany:
-	// 	// 			created[fieldName] = [];
-	// 	// 			for(let child of item[fieldName]) {
-	// 	// 				created[fieldName].push(await this.post(field.type, child));
-	// 	// 			}
-	// 	// 			item[fieldName] = created[fieldName].map((obj) => obj._id);
-	// 	// 			break;
-	// 	// 	}
-	// 	// }
-
-
-	// 	let columns = Object.keys(item).filter((column) => {
-	// 		let field = this._restify[collection][column];
-	// 		return !field.relation 
-	// 			|| (field.master && (field.relation == Relation.OneToOne || field.relation == Relation.ManyToOne));
-	// 	});
-
-	// 	let res = await this.exec(this._restify.stmtInsertInto({
-	// 		table: collection,
-	// 		columns: columns,
-	// 		values: columns.map((column) => item[column])
-	// 	}));
-	// let res = await this.exec(this._restify.stmtInsertInto(collection, item));
-		
-
-	// 	//TODO
-	// 	created._id = res.insertId;
-	// 	return created;
-	// }
 }
 
 
