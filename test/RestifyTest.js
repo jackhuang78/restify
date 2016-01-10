@@ -4,7 +4,11 @@ import chaiSubset from 'chai-subset';
 import chaiDatetime from 'chai-datetime';
 import Restify from '../src/Restify';
 import logger from '../src/Logger';
+import faker from 'faker';
+import Chance from 'chance';
 
+let chance = new Chance(1);
+faker.seed(1);
 chai.use(chaiSubset);
 chai.use(chaiDatetime);
 
@@ -18,13 +22,17 @@ let config = {
 			height: {type: 'double'},
 			graduated: {type: 'boolean'}
 		},
+		Resume: {
+			yearsOfExperience: {type: 'int'},
+			owner: {type: 'Person', 'relation': 'OneToOne', as: 'resume'}
+		},
 		Email: {
 			address: {nullable: false},
 			owner: {type: 'Person', relation: 'ManyToOne', as: 'emails'}
 		},
 		Organization: {
 			name: {nullable: false},
-			members: {type: 'Person', relation: 'ManyToMany', as: 'organization'}
+			members: {type: 'Person', relation: 'ManyToMany', as: 'organizations'}
 		}
 	}
 
@@ -33,235 +41,648 @@ let config = {
 let debugOn = () => logger.setConsoleLevel('debug');
 let debugOff = () => logger.setConsoleLevel('info');
 
-
 describe('Restify', () => {
+	
 
-	describe('# constructor', () => {
-		it('should instanciate properly', (done) => {
-			let restify = new Restify(config);
-			expect(restify).to.be.not.null;
-			expect(restify._database).to.deep.equal(config.database);
-			
-			expect(restify.collections()).to.include('Person');
-			expect(restify.collections()).to.include('Email');
-			expect(restify.collections()).to.include('Organization');
-
-			expect(restify.fields('Person')).to.include('_id');
-			expect(restify.fields('Email')).to.include('_id');
-			expect(restify.fields('Organization')).to.include('_id');
-
-			expect(restify.fields('Person')).to.include('name');
-			expect(restify.fields('Person')).to.include('dateOfBirth');
-			expect(restify.fields('Email')).to.include('address');
-			expect(restify.fields('Email')).to.include('owner');
-			expect(restify.fields('Organization')).to.include('name');
-			expect(restify.fields('Organization')).to.include('members');
-
-			expect(restify.fields('Person')).to.include('emails');
-			expect(restify.fields('Person')).to.include('organization');
-
-
-			done();
-		});
-	});
-
-
-
-
-	describe('# setup', () => {
-		let restify = null;
-
-		before((done) => {
+	//==============================
+	//	test cases
+	//==============================
+	
+	describe('#Operation', () => {
+		let restify, conn;
+		before(async () => {
 			restify = new Restify(config);
-			//debugOn();
-			done();
 		});
-
-		after((done) => {
-			debugOff();
-			done();
-		});
-
-		it('should drop all tables and recreate them', async (done) => {
-			try {
-				await restify.reset();
-				await restify.sync();
-				done();
-			} catch(e) {
-				done(e);
-			}
-			
-			
-		});
-
-	});
-
-	describe('# sigle table crud', () => {
-		let restify = null;
-		let conn = restify;
-
-		before((done) => {
-			restify = new Restify(config);
-			done();
-		});
-
-		beforeEach(async (done) => {
+		beforeEach(async () => {
 			await restify.reset();
 			await restify.sync();
 			conn = restify.connect();
-			//debugOn();
-			done();
+		});
+		afterEach(async () => {
+			await conn.end();
+			debugOff();
+		});
+		after(async () => {
 		});
 
-		afterEach(async (done) => {
-			try {
-				await conn.end();
-				debugOff();
-				done();
-			} catch(e) {
-				done(e);
-			}
+		describe('#Object', () => {
+			describe('#postOrPut', async () => {
+				it('should create items with valid ID', async () => {
+					let res;
+						
+					res = await conn.postOrPut('Person', {});
+					expect(res).to.not.be.null;
+					expect(res).to.have.property('_id')
+							.that.is.a('number')
+							.that.is.greaterThan(0);
+					let id1 = res._id;
+
+					res = await conn.postOrPut('Person', {});
+					expect(res).to.not.be.null;
+					expect(res).to.have.property('_id')
+							.that.is.a('number')
+							.that.is.greaterThan(0)
+							.that.not.equals(id1);
+				});
+			});
+
+			describe('#get', async () => {
+				it('should read a created item by ID', async () => {
+					let res;
+					let name1 = chance.name();
+					let name2 = chance.name();
+
+					res = await conn.postOrPut('Person', {name: name1});
+					let id1 = res._id;
+					res = await conn.postOrPut('Person', {name: name2});
+					let id2 = res._id;
+
+					res = await conn.get('Person', {_id: id1, name: undefined});
+					expect(res).to.not.be.null;
+					expect(res).to.be.a('array').that.have.length(1)
+							.that.containSubset([{_id: id1, name: name1}]);
+
+					res = await conn.get('Person', {_id: id2, name: undefined});
+					expect(res).to.not.be.null;
+					expect(res).to.be.a('array').that.have.length(1)
+							.that.containSubset([{_id: id2, name: name2}]);
+				});
+			});
+
+			describe('#delete', async () => {
+				it('should delete a created item by ID', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let id = res._id;
+					res = await conn.delete('Person', {_id: id});
+					res = await conn.get('Person', {_id: id});
+					expect(res).to.not.be.null;
+					expect(res).to.be.a('array').that.have.length(0);
+				});
+			});
 		});
 
-		after((done) => {
-			done();
+		describe('#Fields', () => {
+			describe('#postOrPut', () => {
+				it('should create an item with string/int/float/boolean/date fields', async () => {
+					let res;
+					let person1 = {
+						name: chance.name(),
+						age: chance.age(), 
+						dateOfBirth: new Date(chance.date().setMilliseconds(0)),
+						height: chance.floating({min: 0, max: 300, fixed: 2}),
+						graduated: chance.bool()
+					};
+
+					res = await conn.postOrPut('Person', person1);
+					let id = res._id;
+					res = await conn.get('Person', {_id: id, '*': undefined});
+					expect(res).to.containSubset([person1]);
+				});
+			
+				it('should update an item with string/int/float/boolean/date fields', async () => {
+					let res;
+					let person1 = {
+						name: chance.name(),
+						age: chance.age(), 
+						dateOfBirth: new Date(chance.date().setMilliseconds(0)),
+						height: chance.floating({min: 0, max: 300, fixed: 2}),
+						graduated: chance.bool()
+					};
+					res = await conn.postOrPut('Person', person1);
+					let id = res._id;
+
+					let person2 = {
+						_id: id,
+						name: chance.name(),
+						age: chance.age(), 
+						dateOfBirth: new Date(chance.date().setMilliseconds(0)),
+						height: chance.floating({min: 0, max: 300, fixed: 2}),
+						graduated: chance.bool()
+					};
+					res = await conn.postOrPut('Person', person2);
+					res = await conn.get('Person', {_id: id, '*': undefined});
+					expect(res[0]).to.containSubset(person2);
+					expect(res[0]).to.have.property('resume', null);
+					expect(res[0]).to.have.property('emails').that.is.a('array').that.is.empty;
+					expect(res[0]).to.have.property('organizations').that.is.a('array').that.is.empty;
+				});
+			});
 		});
 
-		let item0 = {};
-		let item1 = {name: 'Jack', age: 26, dateOfBirth: new Date('12/17/1989'), height: 170.1, graduated: true};
-		let item2 = {name: 'Joe', age: 40};
-		let item3 = {address: 'jack.huang78@gmail.com', 'owner':{name: 'Jack'}};
+		describe('#Relations', () => {
+			describe('#postOrPut', () => {
+				it('should create OneToOne relation from master', async () => {
+					let res;
 
-		it('should create an item, read the item, and delete the item', async (done) => {
-			try {
-				let res = await conn.post('Person', item0);
-				expect(res).to.be.not.null;
-				expect(res).to.have.property('_id', 1);
-				let id = res._id;
+					res = await conn.postOrPut('Resume', {});
+					let resumeId = res._id;
+					res = await conn.postOrPut('Person', {resume: resumeId});
+					let personId = res._id;
 
-				let items = await conn.get('Person', {_id: id});
-				expect(items).to.be.not.null;
-				expect(items).to.be.instanceof(Array);
-				expect(items).to.have.length(1);
-				expect(items[0]).to.be.not.null;
-				expect(items[0]).to.have.property('_id', id);
+					res = await conn.get('Person', {_id: personId, resume: undefined});
+					expect(res[0]).to.have.property('resume', resumeId);
+					res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+				});
 
-				res = await conn.delete('Person', {_id: id});
+				it('should create OneToOne relation from slave', async () => {
+					let res;
 
-				items = await conn.get('Person', {_id: id});
-				expect(items).to.have.length(0);
+					res = await conn.postOrPut('Person', {});
+					let personId = res._id;
+					res = await conn.postOrPut('Resume', {owner: personId});
+					let resumeId = res._id;
 
-				done();
-			} catch(e) {
-				done(e);
-			}
+					res = await conn.get('Person', {_id: personId, resume: undefined});
+					expect(res[0]).to.have.property('resume', resumeId);
+					res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+				});
+
+				it('should update OneToOne relation from master', async () => {
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let personId = res._id;
+					res = await conn.postOrPut('Resume', {});
+					let resume1Id = res._id;
+					res = await conn.postOrPut('Resume', {});
+					let resume2Id = res._id;
+					
+					res = await conn.get('Person', {_id: personId, resume: undefined});
+					expect(res[0]).to.have.property('resume', null);
+					res = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+					res = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+
+					res = await conn.postOrPut('Person', {_id: personId, resume: resume1Id});
+					res = await conn.get('Person', {_id: personId, resume: undefined});
+					expect(res[0]).to.have.property('resume', resume1Id);
+					res = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+					res = await conn.get('Resume', {_id: resume2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+
+					res = await conn.postOrPut('Person', {_id: personId, resume: resume2Id});
+					res = await conn.get('Person', {_id: personId, resume: undefined});
+					expect(res[0]).to.have.property('resume', resume2Id);
+					res = await conn.get('Resume', {_id: resume1Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+					res = await conn.get('Resume', {_id: resume2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+				});
+
+				it('should update OneToOne relation from slave', async () => {
+					let res;
+
+					res = await conn.postOrPut('Resume', {});
+					let resumeId = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person1Id = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person2Id = res._id;
+					
+					res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+					res = await conn.get('Person', {_id: person1Id, resume: undefined});
+					expect(res[0]).to.have.property('resume', null);
+					res = await conn.get('Person', {_id: person2Id, resume: undefined});
+					expect(res[0]).to.have.property('resume', null);
+
+					res = await conn.postOrPut('Resume', {_id: resumeId, owner: person1Id});
+					res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+					expect(res[0]).to.have.property('owner', person1Id);
+					res = await conn.get('Person', {_id: person1Id, resume: undefined});
+					expect(res[0]).to.have.property('resume', resumeId);
+					res = await conn.get('Person', {_id: person2Id, resume: undefined});
+					expect(res[0]).to.have.property('resume', null);
+
+					res = await conn.postOrPut('Resume', {_id: resumeId, owner: person2Id});
+					res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+					expect(res[0]).to.have.property('owner', person2Id);
+					res = await conn.get('Person', {_id: person1Id, resume: undefined});
+					expect(res[0]).to.have.property('resume', null);
+					res = await conn.get('Person', {_id: person2Id, resume: undefined});
+					expect(res[0]).to.have.property('resume', resumeId);
+				});
+
+				it('should create ManyToOne relation from master', async () => {
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let personId = res._id;
+					res = await conn.postOrPut('Email', {owner: personId});
+					let emailId = res._id;
+
+					res = await conn.get('Email', {_id: emailId, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+					res = await conn.get('Person', {_id: personId, emails: undefined});
+					expect(res[0]).to.have.property('emails')
+							.that.has.members([emailId]);
+				});
+
+				it('should update ManyToOne relation from master', async () => {
+					let res;
+
+					res = await conn.postOrPut('Email', {});
+					let emailId = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person1Id = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person2Id = res._id;
+
+					res = await conn.get('Email', {_id: emailId, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+					res = await conn.get('Person', {_id: person1Id, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.is.empty;
+					res = await conn.get('Person', {_id: person2Id, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.is.empty;
+
+					res = await conn.postOrPut('Email', {_id: emailId, owner: person1Id});
+					res = await conn.get('Email', {_id: emailId, owner: undefined});
+					expect(res[0]).to.have.property('owner', person1Id);
+					res = await conn.get('Person', {_id: person1Id, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.has.length(1).that.containSubset([emailId]);
+					res = await conn.get('Person', {_id: person2Id, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.is.empty;
+
+					res = await conn.postOrPut('Email', {_id: emailId, owner: person2Id});
+					res = await conn.get('Email', {_id: emailId, owner: undefined});
+					expect(res[0]).to.have.property('owner', person2Id);
+					res = await conn.get('Person', {_id: person1Id, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.is.empty;
+					res = await conn.get('Person', {_id: person2Id, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.has.length(1).that.containSubset([emailId]);
+				});
+
+				it('should create OneToMany relation from slave', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Email', {});
+					let email1Id = res._id;
+					res = await conn.postOrPut('Email', {});
+					let email2Id = res._id;
+					res = await conn.postOrPut('Person', {emails: [email1Id, email2Id]});
+					let personId = res._id;
+
+					res = await conn.get('Person', {_id: personId, emails: undefined});
+					expect(res[0]).to.have.property('emails')
+							.that.has.members([email1Id, email2Id]);
+					res = await conn.get('Email', {_id: email1Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+					res = await conn.get('Email', {_id: email2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+				});
+
+				it('should update OneToMany relation from slave', async () => {
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let personId = res._id;
+					res = await conn.postOrPut('Email', {});
+					let email1Id = res._id;
+					res = await conn.postOrPut('Email', {});
+					let email2Id = res._id;
+
+					res = await conn.get('Person', {_id: personId, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.has.members([]);
+					res = await conn.get('Email', {_id: email1Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+					res = await conn.get('Email', {_id: email2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+
+					res = await conn.postOrPut('Person', {_id: personId, emails: [email1Id]});
+					res = await conn.get('Person', {_id: personId, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.has.members([email1Id]);
+					res = await conn.get('Email', {_id: email1Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+					res = await conn.get('Email', {_id: email2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+
+					res = await conn.postOrPut('Person', {_id: personId, emails: [email1Id, email2Id]});
+					res = await conn.get('Person', {_id: personId, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.has.members([email1Id, email2Id]);
+					res = await conn.get('Email', {_id: email1Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+					res = await conn.get('Email', {_id: email2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+
+					res = await conn.postOrPut('Person', {_id: personId, emails: [email2Id]});
+					res = await conn.get('Person', {_id: personId, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.has.members([email2Id]);
+					res = await conn.get('Email', {_id: email1Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+					res = await conn.get('Email', {_id: email2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+				});
+
+				it('should create ManyToMany relation from master', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Organization', {});
+					let org1Id = res._id;
+					res = await conn.postOrPut('Organization', {});
+					let org2Id = res._id;
+
+					res = await conn.postOrPut('Person', {organizations: [org1Id]});
+					let person1Id = res._id;
+					res = await conn.postOrPut('Person', {organizations: [org1Id, org2Id]});
+					let person2Id = res._id;
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org1Id]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org1Id, org2Id]);
+
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id, person2Id]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person2Id]);
+				});
+
+				it('should create ManyToMany relation from slave', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let person1Id = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person2Id = res._id;
+
+					res = await conn.postOrPut('Organization', {members: [person1Id]});
+					let org1Id = res._id;
+					res = await conn.postOrPut('Organization', {members: [person1Id, person2Id]});
+					let org2Id = res._id;
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org1Id, org2Id]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org2Id]);
+
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id, person2Id]);
+				});
+
+				it('should update ManyToMany relation from master', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let person1Id = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person2Id = res._id;
+					res = await conn.postOrPut('Organization', {});
+					let org1Id = res._id;
+					res = await conn.postOrPut('Organization', {});
+					let org2Id = res._id;
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+
+					res = await conn.postOrPut('Person', {_id: person1Id, organizations: [org1Id]});
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org1Id]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+
+					res = await conn.postOrPut('Person', {_id: person2Id, organizations: [org1Id, org2Id]});
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org1Id]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org1Id, org2Id]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id, person2Id]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([org2Id]);
+
+					res = await conn.postOrPut('Person', {_id: person2Id, organizations: [org2Id]});
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org1Id]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org2Id]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([org2Id]);
+				});
+
+				it('should update ManyToMany relation from slave', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let person1Id = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person2Id = res._id;
+					res = await conn.postOrPut('Organization', {});
+					let org1Id = res._id;
+					res = await conn.postOrPut('Organization', {});
+					let org2Id = res._id;
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+
+					res = await conn.postOrPut('Organization', {_id: org1Id, members: [person1Id]});
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org1Id]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+
+					res = await conn.postOrPut('Organization', {_id: org2Id, members: [person1Id, person2Id]});
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org1Id, org2Id]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org2Id]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id, person2Id]);
+
+					res = await conn.postOrPut('Organization', {_id: org2Id, members: [person2Id]});
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org1Id]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org2Id]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person2Id]);
+				});
+			}); 
+
+			describe('#delete', () => {
+				it('should delete item that is OneToOne relation master', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let personId = res._id;
+					res = await conn.postOrPut('Resume', {owner: personId});
+					let resumeId = res._id;
+
+					res = await conn.delete('Resume', {_id: resumeId});
+					res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Person', {_id: personId, resume: undefined});
+					expect(res[0]).to.have.property('resume', null);					
+				});
+
+				it('should delete item that is OneToOne relation slave', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let personId = res._id;
+					res = await conn.postOrPut('Resume', {owner: personId});
+					let resumeId = res._id;
+					
+					res = await conn.delete('Person', {_id: personId});
+					res = await conn.get('Person', {_id: personId, resume: undefined});
+					expect(res).to.have.length(0);
+					res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+				});
+
+				it('should delete item that is ManyToOne relation master', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let personId = res._id;
+					res = await conn.postOrPut('Email', {owner: personId});
+					let email1Id = res._id;
+					res = await conn.postOrPut('Email', {owner: personId});
+					let email2Id = res._id;
+
+					res = await conn.delete('Email', {_id: email1Id});
+					res = await conn.get('Email', {_id: email1Id, owner: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Email', {_id: email2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+					res = await conn.get('Person', {_id: personId, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.has.members([email2Id]);
+				});
+
+				it('should delete item that is OneToMany relation slave', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let personId = res._id;
+					res = await conn.postOrPut('Email', {owner: personId});
+					let email1Id = res._id;
+					res = await conn.postOrPut('Email', {owner: personId});
+					let email2Id = res._id;
+
+					res = await conn.delete('Person', {_id: personId});
+					res = await conn.get('Email', {_id: email1Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+					res = await conn.get('Email', {_id: email2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+					res = await conn.get('Person', {_id: personId, emails: undefined});
+					expect(res).to.be.empty;
+				});
+
+				it('should delete item that is ManyToMany relation master', async () => {
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let person1Id = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person2Id = res._id;
+					res = await conn.postOrPut('Organization', {members: [person1Id]});
+					let org1Id = res._id;
+					res = await conn.postOrPut('Organization', {members: [person1Id, person2Id]});
+					let org2Id = res._id;
+
+					res = await conn.delete('Organization', {_id: org1Id});
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org2Id]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org2Id]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id, person2Id]);
+
+					res = await conn.delete('Organization', {_id: org2Id});
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res).to.be.empty;
+
+				});
+
+				it('should delete item that is ManyToMany relation slave', async () => {
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let person1Id = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person2Id = res._id;
+					res = await conn.postOrPut('Organization', {members: [person1Id]});
+					let org1Id = res._id;
+					res = await conn.postOrPut('Organization', {members: [person1Id, person2Id]});
+					let org2Id = res._id;
+
+					res = await conn.delete('Person', {_id: person1Id});
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org2Id]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person2Id]);
+
+					res = await conn.delete('Person', {_id: person2Id});
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+
+				});
+			});
 		});
-
-		it('should create an item with various types of fields', async (done) => {
-			try {
-				let res = await conn.post('Person', item1);
-				let id = res._id;
-				let items = await conn.get('Person', {'*': undefined, _id: id});
-
-				expect(items[0]).to.have.property('_id', id);
-				expect(items[0]).to.have.property('name', item1.name);
-				expect(items[0]).to.have.property('age', item1.age);
-				expect(items[0]).to.have.property('height', item1.height);
-				expect(items[0]).to.have.property('graduated', item1.graduated);
-				expect(items[0].dateOfBirth).to.equalDate(item1.dateOfBirth);
-
-				done();
-			} catch(e) {
-				done(e);
-			}
-		});
-
-		it('should udpate an item', async (done) => {
-			try {
-				let res = await conn.post('Person', item1);
-				let id = res._id;
-
-				res = await conn.put('Person', {_id: id, name: 'Jack Huang'});
-
-				let items = await conn.get('Person', {'*': undefined, _id: id});
-				expect(items[0]).to.have.property('name', 'Jack Huang');
-
-				done();
-			} catch(e) {
-				done(e);
-			}
-		});
-
-		
-
-
-		// it('should create an item and retrieve it by ID', async (done) => {
-		// 	try {
-		// 		let id = (await conn.post('Person', item1))._id;
-		// 		let res = await conn.get('Person', {
-		// 			select: ['*'],
-		// 			where: {_id: id}
-		// 		});
-
-		// 		expect(res[0]).to.have.property('_id', id);
-		// 		expect(res[0]).to.have.property('name', item1.name);
-		// 		expect(res[0].dateOfBirth).to.equalDate(item1.dateOfBirth);
-
-		// 		done();
-		// 	} catch(e) {
-		// 		done(e);
-		// 	}
-		// });
-
-		// it('should query items by field', async (done) => {
-		// 	try {
-		// 		let res1 = await conn.post('Person', item1);
-		// 		let res2 = await conn.post('Person', item2);
-		// 		expect(res1).to.have.property('_id');
-		// 		expect(res2).to.have.property('_id');
-				
-		// 		let items = await conn.get('Person', {
-		// 			select: ['*'],
-		// 			where: {age: ['>', 30]}
-
-
-		// 		});
-		// 		expect(items.length).to.equal(1);
-		// 		expect(items).to.containSubset([Object.assign(item2, {_id: res2._id})]);
-
-		// 		items = await conn.get('Person', {
-		// 			select: ['*'],
-		// 			where: {age: ['<', 50]}
-		// 		});
-		// 		expect(items.length).to.equal(2);
-		// 		expect(items).to.containSubset([Object.assign(item1, {_id: res1._id})]);
-		// 		expect(items).to.containSubset([Object.assign(item2, {_id: res2._id})]);
-
-
-		// 		done();
-		// 	} catch(e) {
-		// 		done(e);	
-		// 	}
-		// });
-
-		// it('should create item with nested item', async (done) => {
-		// 	try {
-		// 		let created = await conn.post('Email', item3);
-		// 		expect(created).to.have.property('_id');
-		// 		expect(created).to.have.property('owner');
-		// 		expect(created).to.have.deep.property('owner._id');
-
-
-
-
-		// 		//TODO: do this next
-		// 		done();
-		// 	} catch(e) {
-		// 		done(e);
-		// 	}
-		// });
-
 	});
-	
-
 });

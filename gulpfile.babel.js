@@ -30,7 +30,8 @@ gulp.task('test', ['lint'], () => {
 		? argv.f : '**/*';
 	return gulp.src(`test/${file}.js`)
 		.pipe(babel())
-		.pipe(mocha({bail: true}));
+		//.pipe(mocha({bail: true}));
+		.pipe(mocha());
 });
 
 gulp.task('testq', () => {

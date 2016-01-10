@@ -1,6 +1,7 @@
 import Enum from 'es6-enum';
 import mysql from 'mysql';
 import logger from './Logger';
+import util from 'util';
 
 // TODO
 // make this work with single table query only!
@@ -19,6 +20,15 @@ const Type = {
 	boolean: 'boolean',
 	double: 'double'
 };
+
+const Store = {
+	Main: 'Main',
+	Target: 'Target',
+	MainJoint: 'MainJoint',
+	TargetJoint: 'TargetJoint'
+};
+
+
 
 const ID = '_id';
 const ALL = '*';
@@ -90,6 +100,30 @@ class Restify {
 						relation: this.invRelation(field.relation),
 						as: fieldName
 					};
+				}
+			}
+		}
+
+		// add some more metadata
+		for(let collectionName in this._collections) {
+			let collection = this._collections[collectionName];
+			for(let fieldName in collection) {
+				let field = collection[fieldName];
+				switch(field.relation) {
+					case Relation.OneToOne:
+						field.store = field.master ? Store.Main : Store.Target;
+						break;
+					case Relation.ManyToOne:
+						field.store = Store.Main;
+						break;
+					case Relation.OneToMany:
+						field.store = Store.Target;
+						break;
+					case Relation.ManyToMany:
+						field.store = field.master ? Store.MainJoint : Store.TargetJoint;
+						break;
+					default:
+						field.store = Store.Main;
 				}
 			}
 		}
@@ -170,6 +204,15 @@ class Restify {
 
 				switch(field.relation) {
 					case Relation.OneToOne:
+						await conn.exec(this.stmtAlterTableAddFk({
+							table: collectionName,
+							column: {name: fieldName, type: field.type}
+						}));
+						await conn.exec(this.stmtAlterTableAddUnique({
+							table: collectionName,
+							column: {name: fieldName}
+						}));
+						break;
 					case Relation.ManyToOne:
 						await conn.exec(this.stmtAlterTableAddFk({
 							table: collectionName,
@@ -178,6 +221,12 @@ class Restify {
 						break;
 					case Relation.ManyToMany:
 						await conn.exec(this.stmtCreateJoinTable({
+							table: collectionName, 
+							master: collectionName,
+							slave: field.type,
+							field: fieldName
+						}));
+						await conn.exec(this.stmtCreateUniqueIndex({
 							table: collectionName, 
 							master: collectionName,
 							slave: field.type,
@@ -261,11 +310,23 @@ class Restify {
 			+ ` REFERENCES ${mysql.escapeId(p.slave)}(${mysql.escapeId(ID)}));`;
 	}
 
+	stmtCreateUniqueIndex(p) {
+		return `ALTER TABLE ${mysql.escapeId(`${p.master}_${p.field}`)}`
+			+ ` ADD UNIQUE ${mysql.escapeId(`uq_${p.master}_${p.field}`)}`
+			+ ` (${mysql.escapeId(ID)}, ${mysql.escapeId(p.field)})`;
+	}
+
 	stmtAlterTableAdd(p) {
 		//let size = column.size ? `(${column.size})` : ``;
 		return `ALTER TABLE ${mysql.escapeId(p.table)}`
 			+ ` ADD ${mysql.escapeId(p.column.name)} ${this.toSqlType(p.column.type)};`;
 	}
+
+	stmtAlterTableAddUnique(p) {
+		return `ALTER TABLE ${mysql.escapeId(p.table)}`
+			+ ` ADD UNIQUE (${mysql.escapeId(p.column.name)});`;
+	}
+
 
 	stmtAlterTableAddFk(p) {
 		return `ALTER TABLE ${mysql.escapeId(p.table)}`
@@ -289,9 +350,15 @@ class Restify {
 	}
 
 	stmtFormatWhere(where) {
-		return Object.keys(where).map((field) => {
-			return mysql.escape({[field]: where[field]});
-		}).join(' AND ');
+		if(where == null)
+			return '(1=1)';
+
+		return '(' + Object.keys(where).map((field) => {
+			let vals = (where[field] instanceof Array) ? where[field] : [where[field]];
+			return vals.map((val) => {
+				return mysql.escape({[field]: val});
+			}).join(' OR ');
+		}).join(') AND (') + ')';
 	}
 
 	//=======
@@ -321,7 +388,7 @@ class Restify {
 			+ ` WHERE ${this.stmtFormatWhere(p.where)};`;
 	}
 
-	
+
 }
 
 class Connection {
@@ -356,54 +423,122 @@ class Connection {
 		});
 	}
 
-	async post(collection, item) {
-		let created = {};
-		
-		// only actual fields and toOne master relation is stored in the main table
-		let columns = Object.keys(item).filter((column) => {
-			let field = this._restify._collections[collection][column];
-			if(field == null)
-				return false;
-			else if(field.relation == null)
-				return true;
-			else if(field.relation === Relation.OneToOne || field.relation === Relation.ManyToOne)
-				return field.master;
-			else 
-				return false;
-		});
+	async delete(collectionName, query) {
+		let res;
+		let collection = this._restify._collections[collectionName];
 
-		let values = columns.map((column) => item[column]);
+		// remove relation
+		for(let fieldName in collection) {
+			let field = collection[fieldName];
+			if(field.relation === Relation.OneToOne || field.relation === Relation.OneToMany) {
+				if(!field.master) {
+					res = await this.exec(this._restify.stmtUpdateSet({
+						table: field.type,
+						set: {[field.as]: null},
+						where: {[field.as]: query._id}
+					}));
+				}
+			} else if(field.relation === Relation.ManyToMany) {
+				if(field.master) {
+					res = await this.exec(this._restify.stmtDeleteFrom({
+						table: `${collectionName}_${fieldName}`,
+						where: {_id: query._id}
+					}));
+				} else {
+					res = await this.exec(this._restify.stmtDeleteFrom({
+						table: `${field.type}_${field.as}`,
+						where: {[field.as]: query._id}
+					}));
+				}
+			}
+		}
 
-		let res = await this.exec(this._restify.stmtInsertInto({
-			table: collection,
-			columns: columns,
-			values: [values]
+
+		let select = Object.keys(query).filter((column) => (collection[column] != null));
+		let where = {};
+		for(let column of select) {
+			where[column] = query[column];
+		}
+
+
+
+		res = await this.exec(this._restify.stmtDeleteFrom({
+			table: collectionName,
+			where: where
 		}));
 
-		created._id = res.insertId;
-
-		return created;
+		return res;
 	}
 
 	async get(collection, query) {
-		let select = Object.keys(query).filter((column) => {
-			return column === ALL || this._restify._collections[collection][column] != null;
+		if(Object.keys(query).indexOf(ALL) >= 0) {
+			for(let fieldName in this._restify._collections[collection]) {
+				if(query[fieldName] === undefined)
+					query[fieldName] = undefined;
+			}
+			delete query[ALL];
+		}
+		if(Object.keys(query).indexOf(ID) < 0)
+			query[ID] = undefined;
+
+		let select = Object.keys(query).filter((fieldName) => {
+			return this._restify._collections[collection][fieldName].store === Store.Main;
 		});
 		
 		let where = {};
-		for(let column of select) {
-			if(column !== ALL && query[column] !== undefined)
-				where[column] = query[column];
+		for(let fieldName in query) {
+			if(this._restify._collections[collection][fieldName].store === Store.Main && query[fieldName] !== undefined) {
+				where[fieldName] = query[fieldName];
+			}
 		}
 
-		let res = await this.exec(this._restify.stmtSelectFrom({
+		let items = await this.exec(this._restify.stmtSelectFrom({
 			table: collection,
 			select: select,
 			where: where
 		}));
 
+		for(let item of items) {
+			// query for slave fields
+			for(let fieldName in query) {
+				if(fieldName === ALL)
+					continue;
+				let field = this._restify._collections[collection][fieldName];
+				
+				if(field.store === Store.Target) {
+					let res = await this.exec(this._restify.stmtSelectFrom({
+						table: field.type,
+						select: [ID],
+						where: {[field.as]: item._id}
+					}));
+
+					if(field.relation === Relation.OneToOne) {
+						item[fieldName] = res.length > 0 ? res[0]._id : null;
+					} else {
+						item[fieldName] = res.map((r) => r._id);
+					}
+
+				} else if(field.store === Store.MainJoint) {
+					let res = await this.exec(this._restify.stmtSelectFrom({
+						table: `${collection}_${fieldName}`,
+						select: [fieldName],
+						where: {[ID]: item[ID]}
+					}));
+					item[fieldName] = res.map((r) => r[fieldName]);
+				} else if(field.store === Store.TargetJoint) {
+					let res = await this.exec(this._restify.stmtSelectFrom({
+						table: `${field.type}_${field.as}`,
+						select: [ID],
+						where: {[field.as]: item[ID]}
+					}));
+					item[fieldName] = res.map((r) => r[ID]);
+				}
+			}
+		}
+
+		// for boolean field, convert result from int to boolean
 		// TODO this seems very inefficient
-		for(let item of res) {
+		for(let item of items) {
 			for(let field in item) {
 				if(this._restify._collections[collection][field].type === Type.boolean) {
 					item[field] = (item[field] === 1);
@@ -411,69 +546,271 @@ class Connection {
 			}
 		}
 
-		return res;
+		return items;
+	}
+
+	filterFields(item, filter) {
+		let filteredItem = {};
+
+		for(let key in item) {
+			if(filter(key))
+				filteredItem[key] = item[key];
+		}
+
+		return filteredItem;
+	}
+
+	classOf(v) {
+		switch(typeof v) {
+			case 'boolean':
+			case 'number':
+			case 'string':
+				return (typeof v);
+			case 'object':
+				return (v instanceof Array) ? 'array' : 'object';
+			default:
+				return null;
+		}
+	}
+
+
+
+	async postOrPut(collectionName, item, canCreate, canUpdate) {
+		logger.debug(`Restify> POST/PUT ${collectionName} ${util.inspect(item)}`);
+
+		let res;
+		let itemIds = {};
+		let collection = this._restify._collections[collectionName];
+
+		// create the item if it doesn't yet exist
+		if(item._id == null) {
+			let columns = Object.keys(item).filter((fieldName) => collection[fieldName].relation == null);
+			let values = columns.map((columnName) => item[columnName]);
+			res = await this.exec(this._restify.stmtInsertInto({
+				table: collectionName,
+				columns: columns,
+				values: [values]
+			}));
+			itemIds._id = res.insertId;
+			itemIds.created = true;
+			
+		} else {
+			itemIds._id = item._id;
+			let itemFields = this.filterFields(item, (fieldName) => collection[fieldName].relation == null);
+			if(Object.keys(itemFields).length !== 0) {
+				res = await this.exec(this._restify.stmtUpdateSet({
+					table: collectionName,
+					set: itemFields,
+					where: {_id: itemIds._id}
+				}));
+			}
+		}
+
+		for(let fieldName in item) {
+			let field = collection[fieldName];
+			let value = item[fieldName];
+			if(value === undefined || field.relation == null)
+				continue;
+
+			
+			if(field.relation === Relation.OneToOne || field.relation === Relation.ManyToOne) {
+				// case: ToOne relations
+				let child = value;
+				let childClass = this.classOf(child);
+
+				if(childClass === 'number') { 
+					// child id given
+					itemIds[fieldName] = {_id: child};
+				} else if(childClass === 'object') {
+					// child needs to be created first
+					res = await postOrPut(field.type, child);
+					itemIds[fieldName] = res;
+				} else {
+					throw new Error(`Expecting object or number for OneToOne relation, but got ${childClass}.`);
+				}
+
+				if(field.relation === Relation.OneToOne) {
+					if(field.master) {
+						// remove the child from any other relation
+						res = await this.exec(this._restify.stmtUpdateSet({
+							table: collectionName,
+							set: {[fieldName]: null},
+							where: {[fieldName]: itemIds[fieldName]._id}
+						}));
+
+						// set the relation
+						res = await this.exec(this._restify.stmtUpdateSet({
+							table: collectionName,
+							set: {[fieldName]: itemIds[fieldName]._id},
+							where: {_id: itemIds._id}
+						}));
+					} else {
+						res = await this.exec(this._restify.stmtUpdateSet({
+							table: field.type,
+							set: {[field.as]: null},
+							where: {[field.as]: itemIds._id}
+						}));					
+
+						res = await this.exec(this._restify.stmtUpdateSet({
+							table: field.type,
+							set: {[field.as]: itemIds._id},
+							where: {_id: itemIds[fieldName]._id}
+						}));
+					}
+				} else {
+					if(field.master) {
+						// set the relation
+						res = await this.exec(this._restify.stmtUpdateSet({
+							table: collectionName,
+							set: {[fieldName]: itemIds[fieldName]._id},
+							where: {_id: itemIds._id}
+						}));
+					} else {
+						throw new Error(`Cannot have ManyToOne slave relation`);
+					}
+				}
+			} else {
+				// case: ToMany relations
+				let children = value;
+				let childrenClass = this.classOf(children);
+				if(childrenClass !== 'array') {
+					throw new Error(`Expecting array for OneToMany relation, but got ${childrenClass}.`);
+				}
+
+				itemIds[fieldName] = [];
+
+				for(let child of children) {
+					let childClazz = this.classOf(child);
+					if(childClazz === 'object') {
+						res = await postOrPut(field.type, child);
+						itemIds[fieldName].push(res);
+					} else if(childClazz === 'number') {
+						itemIds[fieldName].push({_id: child});
+					} else {
+						throw new Error(`Expecting array of object or number for OneToMany relation, but got ${childClazz}.`);
+					}
+				}
+
+				if(field.relation === Relation.OneToMany) {
+					if(field.master) {
+						throw new Error(`Cannot have OneToMany master relation`);
+					} else {
+						res = await this.exec(this._restify.stmtUpdateSet({
+							table: field.type,
+							set: {[field.as]: null},
+							where: {[field.as]: itemIds._id}
+						}));
+
+						res = await this.exec(this._restify.stmtUpdateSet({
+							table: field.type,
+							set: {[field.as]: itemIds._id},
+							where: {_id: itemIds[fieldName].map((child) => child._id)}
+						}));
+					}
+				} else {
+					if(field.master) {
+						res = await this.exec(this._restify.stmtDeleteFrom({
+							table: `${collectionName}_${fieldName}`,
+							where: {_id: itemIds._id}
+						}));
+						res = await this.exec(this._restify.stmtInsertInto({
+							table: `${collectionName}_${fieldName}`,
+							columns: ['_id', fieldName],
+							values: itemIds[fieldName].map((child) => [itemIds._id, child._id])
+						}));
+					} else {
+						res = await this.exec(this._restify.stmtDeleteFrom({
+							table: `${field.type}_${field.as}`,
+							where: {[field.as]: itemIds._id}
+						}));
+						res = await this.exec(this._restify.stmtInsertInto({
+							table: `${field.type}_${field.as}`,
+							columns: ['_id', field.as],
+							values: itemIds[fieldName].map((child) => [child._id, itemIds._id])
+						}));
+					}
+				}
+
+			}	// IF relation
+		} // FOR field
+
+		return itemIds;
+
+
 	}
 
 	async put(collection, item) {
-		let res = await this.exec(this._restify.stmtUpdateSet({
-			table: collection,
-			set: item,
-			where: {_id: item._id}
-		}));
+		logger.debug('PUT', collection, item);
 
-		return res;
-	}
 
-	async delete(collection, query) {
-		let select = Object.keys(query).filter((column) => {
-			return this._restify._collections[collection][column] != null;
-		});
-		let where = {};
-		for(let column of select) {
-			where[column] = query[column];
+		let mainItem = {};
+		for(let fieldName in item) {
+			let field = this._restify._collections[collection][fieldName];
+			if(field.store === Store.Main) {
+				mainItem[fieldName] = item[fieldName];
+			}
 		}
 
-		let res = await this.exec(this._restify.stmtDeleteFrom({
+		let res = await this.exec(this._restify.stmtUpdateSet({
 			table: collection,
-			where: where
+			set: mainItem,
+			where: {[ID]: item[ID]}
 		}));
+
+		// udpate 
+		for(let fieldName in item) {
+			let field = this._restify._collections[collection][fieldName];
+
+			if(field.store === Store.Target) {
+				let targetIds = (field.relation === Relation.OneToOne) 
+					? [item[fieldName]] 
+					: item[fieldName];
+
+				//if(field.relation === Relation.OneToOne) {
+				await this.exec(this._restify.stmtUpdateSet({
+					table: field.type,
+					set: {[field.as]: null},
+					where: {[field.as]: item[ID]}
+				}));				
+				//}
+				
+				if(targetIds.length !== 0) {
+					res = await this.exec(this._restify.stmtUpdateSet({
+						table: field.type,
+						set: {[field.as]: item[ID]},
+						where: {[ID]: targetIds}
+					}));
+				}
+				
+			} else if(field.store === Store.MainJoint) {
+				let targetIds = item[fieldName];
+				let res = await this.exec(this._restify.stmtDeleteFrom({
+					table: `${collection}_${fieldName}`,
+					where: {[ID]: item[ID]}
+				}));
+				res = await this.exec(this._restify.stmtInsertInto({
+					table: `${collection}_${fieldName}`,
+					columns: [ID, fieldName],
+					values: targetIds.map((targetId) => [item[ID], targetId])
+				}));
+			} else if(field.store === Store.TargetJoint) {
+				let targetIds = item[fieldName];
+				let res = await this.exec(this._restify.stmtDeleteFrom({
+					table: `${field.type}_${field.as}`,
+					where: {[field.as]: item[ID]}
+				}));
+				res = await this.exec(this._restify.stmtInsertInto({
+					table: `${field.type}_${field.as}`,
+					columns: [ID, field.as],
+					values: targetIds.map((targetId) => [targetId, item[ID]])
+				}));
+			}
+		}
 
 		return res;
 	}
 
-	
 
-	
-	// async get(collection, q) {
-
-	// 	let select = Object.keys(q).map((field) => {
-	// 		let field = this._restify[collection][column];
-	// 		return !field.relation 
-	// 			|| (field.master && (field.relation == Relation.OneToOne || field.relation == Relation.ManyToOne));
-	// 	});
-
-	// 	let where = select.filter((field) => {
-	// 		return q[field] !== undefined;
-	// 	}).map((field) => {
-	// 		return 
-	// 	});
-
-
-
-	// 	if(q.select != null && q.select.length != 0 && q.select[0] === '*')
-	// 		q.select = Object.keys(this._restify._collections[collection]);
-
-	// 	for(let fieldName of q.select) {
-	// 		if(q.where[fieldName] === undefined) {
-	// 			q.where[fieldName] = undefined;	// probably not a good idea...
-	// 		}
-	// 	}
-	// 	let res = await this.exec(this._restify.stmtSelectFrom(collection, q.where));
-	// 	return res;
-	// }
-
-
-	
 
 	
 
@@ -489,49 +826,6 @@ class Connection {
 
 	}	
 
-
-	// async post2(collection, item) {
-	// 	let created = {};
-
-	// 	// first, insert all nested items
-	// 	// for(let fieldName in item) {
-	// 	// 	let field = this._restify[collection][fieldName];
-	// 	// 	switch(field.relation) {
-	// 	// 		case Relation.OneToOne:
-	// 	// 		case Relation.ManyToOne:
-	// 	// 			created[fieldName] = await this.post(field.type, item[fieldName]);
-	// 	// 			item[fieldName] = created[fieldName]._id;
-	// 	// 			break;
-	// 	// 		case Relation.OneToMany:
-	// 	// 		case Relation.ManyToMany:
-	// 	// 			created[fieldName] = [];
-	// 	// 			for(let child of item[fieldName]) {
-	// 	// 				created[fieldName].push(await this.post(field.type, child));
-	// 	// 			}
-	// 	// 			item[fieldName] = created[fieldName].map((obj) => obj._id);
-	// 	// 			break;
-	// 	// 	}
-	// 	// }
-
-
-	// 	let columns = Object.keys(item).filter((column) => {
-	// 		let field = this._restify[collection][column];
-	// 		return !field.relation 
-	// 			|| (field.master && (field.relation == Relation.OneToOne || field.relation == Relation.ManyToOne));
-	// 	});
-
-	// 	let res = await this.exec(this._restify.stmtInsertInto({
-	// 		table: collection,
-	// 		columns: columns,
-	// 		values: columns.map((column) => item[column])
-	// 	}));
-	// let res = await this.exec(this._restify.stmtInsertInto(collection, item));
-		
-
-	// 	//TODO
-	// 	created._id = res.insertId;
-	// 	return created;
-	// }
 }
 
 
