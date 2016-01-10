@@ -125,7 +125,7 @@ describe('Restify', () => {
 		});
 
 		describe('#Fields', () => {
-			describe('#postOrPut/get', () => {
+			describe('#postOrPut', () => {
 				it('should create an item with string/int/float/boolean/date fields', async () => {
 					let res;
 					let person1 = {
