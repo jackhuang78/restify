@@ -4,6 +4,6 @@ node_js:
 services:
   - mysql
 before_script:
-  - mysql -e 'create database restify;'
+  - mysql -u root -e 'create database restify;'
   - npm install -g gulp
 script: gulp
