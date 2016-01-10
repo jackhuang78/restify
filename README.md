@@ -1,5 +1,5 @@
 #restify
-[![ghit.me](https://ghit.me/badge.svg?repo=jhuang78/restify)](https://ghit.me/repo/jhuang78/restify)
+[![Build Status](https://travis-ci.org/jhuang78/restify.svg)](https://travis-ci.org/jhuang78/restify) [![ghit.me](https://ghit.me/badge.svg?repo=jhuang78/restify)](https://ghit.me/repo/jhuang78/restify)
 
 Access SQL database using the REST styles.
 
