@@ -424,7 +424,35 @@ class Connection {
 	}
 
 	async delete(collectionName, query) {
+		let res;
 		let collection = this._restify._collections[collectionName];
+
+		// remove relation
+		for(let fieldName in collection) {
+			let field = collection[fieldName];
+			if(field.relation === Relation.OneToOne || field.relation === Relation.OneToMany) {
+				if(!field.master) {
+					res = await this.exec(this._restify.stmtUpdateSet({
+						table: field.type,
+						set: {[field.as]: null},
+						where: {[field.as]: query._id}
+					}));
+				}
+			} else if(field.relation === Relation.ManyToMany) {
+				if(field.master) {
+					res = await this.exec(this._restify.stmtDeleteFrom({
+						table: `${collectionName}_${fieldName}`,
+						where: {_id: query._id}
+					}));
+				} else {
+					res = await this.exec(this._restify.stmtDeleteFrom({
+						table: `${field.type}_${field.as}`,
+						where: {[field.as]: query._id}
+					}));
+				}
+			}
+		}
+
 
 		let select = Object.keys(query).filter((column) => (collection[column] != null));
 		let where = {};
@@ -432,7 +460,9 @@ class Connection {
 			where[column] = query[column];
 		}
 
-		let res = await this.exec(this._restify.stmtDeleteFrom({
+
+
+		res = await this.exec(this._restify.stmtDeleteFrom({
 			table: collectionName,
 			where: where
 		}));

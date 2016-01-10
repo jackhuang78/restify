@@ -48,7 +48,7 @@ describe('Restify', () => {
 	//	test cases
 	//==============================
 	
-	describe('# operation', () => {
+	describe('# Operation', () => {
 		let restify, conn;
 		before((done) => {
 			restify = new Restify(config);
@@ -230,7 +230,6 @@ describe('Restify', () => {
 						expect(res[0]).to.have.property('resume', resumeId);
 						res = await conn.get('Resume', {_id: resumeId, owner: undefined});
 						expect(res[0]).to.have.property('owner', personId);
-
 
 						done();
 					} catch(e) {
@@ -675,24 +674,134 @@ describe('Restify', () => {
 					res = await conn.get('Resume', {_id: resumeId, owner: undefined});
 					expect(res).to.be.empty;
 					res = await conn.get('Person', {_id: personId, resume: undefined});
-					expect(res[0]).to.have.property('resume', null);
-					
+					expect(res[0]).to.have.property('resume', null);					
 				});
 
 				it('should delete item that is OneToOne relation slave', async () => {
-					debugOn();
+					//debugOn();
 					let res;
 
 					res = await conn.postOrPut('Person', {});
 					let personId = res._id;
 					res = await conn.postOrPut('Resume', {owner: personId});
 					let resumeId = res._id;
+					
+					res = await conn.delete('Person', {_id: personId});
+					res = await conn.get('Person', {_id: personId, resume: undefined});
+					expect(res).to.have.length(0);
+					res = await conn.get('Resume', {_id: resumeId, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+				});
+
+				it('should delete item that is ManyToOne relation master', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let personId = res._id;
+					res = await conn.postOrPut('Email', {owner: personId});
+					let email1Id = res._id;
+					res = await conn.postOrPut('Email', {owner: personId});
+					let email2Id = res._id;
+
+					res = await conn.delete('Email', {_id: email1Id});
+					res = await conn.get('Email', {_id: email1Id, owner: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Email', {_id: email2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', personId);
+					res = await conn.get('Person', {_id: personId, emails: undefined});
+					expect(res[0]).to.have.property('emails').that.has.members([email2Id]);
+				});
+
+				it('should delete item that is OneToMany relation slave', async () => {
+					//debugOn();
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let personId = res._id;
+					res = await conn.postOrPut('Email', {owner: personId});
+					let email1Id = res._id;
+					res = await conn.postOrPut('Email', {owner: personId});
+					let email2Id = res._id;
 
 					res = await conn.delete('Person', {_id: personId});
-					res = await conn.get('Person', {_id: personId});
-					expect(res).to.have.length(0);
-					res = await conn.get('Resume', {_id: resumeId});
+					res = await conn.get('Email', {_id: email1Id, owner: undefined});
 					expect(res[0]).to.have.property('owner', null);
+					res = await conn.get('Email', {_id: email2Id, owner: undefined});
+					expect(res[0]).to.have.property('owner', null);
+					res = await conn.get('Person', {_id: personId, emails: undefined});
+					expect(res).to.be.empty;
+				});
+
+				it('should delete item that is ManyToMany relation master', async () => {
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let person1Id = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person2Id = res._id;
+					res = await conn.postOrPut('Organization', {members: [person1Id]});
+					let org1Id = res._id;
+					res = await conn.postOrPut('Organization', {members: [person1Id, person2Id]});
+					let org2Id = res._id;
+
+					res = await conn.delete('Organization', {_id: org1Id});
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org2Id]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org2Id]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person1Id, person2Id]);
+
+					res = await conn.delete('Organization', {_id: org2Id});
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([]);
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res).to.be.empty;
+
+				});
+
+				it('should delete item that is ManyToMany relation slave', async () => {
+					let res;
+
+					res = await conn.postOrPut('Person', {});
+					let person1Id = res._id;
+					res = await conn.postOrPut('Person', {});
+					let person2Id = res._id;
+					res = await conn.postOrPut('Organization', {members: [person1Id]});
+					let org1Id = res._id;
+					res = await conn.postOrPut('Organization', {members: [person1Id, person2Id]});
+					let org2Id = res._id;
+
+					res = await conn.delete('Person', {_id: person1Id});
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res[0]).to.have.property('organizations').that.has.members([org2Id]);
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([person2Id]);
+
+					res = await conn.delete('Person', {_id: person2Id});
+
+					res = await conn.get('Person', {_id: person1Id, organizations: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Person', {_id: person2Id, organizations: undefined});
+					expect(res).to.be.empty;
+					res = await conn.get('Organization', {_id: org1Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
+					res = await conn.get('Organization', {_id: org2Id, members: undefined});
+					expect(res[0]).to.have.property('members').that.has.members([]);
 
 				});
 			});
