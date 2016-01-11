@@ -1,3 +1,5 @@
+**NOTE: Work in progress...if you are interested just shoot me an email.**
+
 #restify
 [![npm version](https://badge.fury.io/js/%40jhuang78%2Frestify.svg)](https://badge.fury.io/js/%40jhuang78%2Frestify) [![Build Status](https://travis-ci.org/jhuang78/restify.svg)](https://travis-ci.org/jhuang78/restify) [![ghit.me](https://ghit.me/badge.svg?repo=jhuang78/restify)](https://ghit.me/repo/jhuang78/restify)
 
