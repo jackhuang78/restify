@@ -323,7 +323,7 @@ class Restify {
 
 	stmtAlterTableAddUnique(p) {
 		return `ALTER TABLE ${mysql.escapeId(p.table)}`
-			+ ` ADD UNIQUE (${mysql.escapeId(p.column.name)});`;
+			+ ` ADD UNIQUE INDEX unique_${mysql.escapeId(p.column.name)} (${mysql.escapeId(p.column.name)});`;
 	}
 
 
