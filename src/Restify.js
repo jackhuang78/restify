@@ -225,12 +225,12 @@ class Restify {
 							slave: field.type,
 							field: fieldName
 						}));
-						await conn.exec(this.stmtCreateUniqueIndex({
-							table: collectionName, 
-							master: collectionName,
-							slave: field.type,
-							field: fieldName
-						}));
+						// await conn.exec(this.stmtCreateUniqueIndex({
+						// 	table: collectionName, 
+						// 	master: collectionName,
+						// 	slave: field.type,
+						// 	field: fieldName
+						// }));
 						break;	
 				}
 			}
