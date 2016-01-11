@@ -225,12 +225,6 @@ class Restify {
 							slave: field.type,
 							field: fieldName
 						}));
-						// await conn.exec(this.stmtCreateUniqueIndex({
-						// 	table: collectionName, 
-						// 	master: collectionName,
-						// 	slave: field.type,
-						// 	field: fieldName
-						// }));
 						break;	
 				}
 			}
@@ -307,12 +301,6 @@ class Restify {
 			+ ` ${mysql.escapeId(p.field)} INT,`
 			+ ` FOREIGN KEY (${mysql.escapeId(p.field)})`
 			+ ` REFERENCES ${mysql.escapeId(p.slave)}(${mysql.escapeId(ID)}));`;
-	}
-
-	stmtCreateUniqueIndex(p) {
-		return `ALTER TABLE ${mysql.escapeId(`${p.master}_${p.field}`)}`
-			+ ` ADD UNIQUE ${mysql.escapeId(`uq_${p.master}_${p.field}`)}`
-			+ ` (${mysql.escapeId(ID)}, ${mysql.escapeId(p.field)})`;
 	}
 
 	stmtAlterTableAdd(p) {
