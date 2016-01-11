@@ -1,11 +1,15 @@
 {
   "name": "@jhuang78/restify",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Access SQL database using the REST styles.",
-  "keywords": ["rest", "sql", "orm"],
-  "repository" : { 
-    "type" : "git", 
-    "url" : "https://github.com/jhuang78/restify"
+  "keywords": [
+    "rest",
+    "sql",
+    "orm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jhuang78/restify"
   },
   "main": "index.js",
   "scripts": {
