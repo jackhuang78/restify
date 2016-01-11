@@ -5,6 +5,5 @@ services:
   - mysql
 before_script:
   - mysql -u root -e 'create database restify;'
-  - mysql --version
   - npm install -g gulp
 script: gulp
