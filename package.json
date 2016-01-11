@@ -1,12 +1,17 @@
 {
-  "name": "restify",
+  "name": "@jhuang78/restify",
   "version": "1.1.0",
-  "description": "",
+  "description": "Access SQL database using the REST styles.",
+  "keywords": ["rest", "sql", "orm"]
+  "repository" : { 
+    "type" : "git", 
+    "url" : "https://github.com/jhuang78/restify"
+  },
   "main": "index.js",
   "scripts": {
     "test": "gulp test"
   },
-  "author": "",
+  "author": "Jack Huang",
   "license": "ISC",
   "dependencies": {
     "mysql": "^2.9.0",
