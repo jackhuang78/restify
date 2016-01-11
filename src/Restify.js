@@ -225,12 +225,6 @@ class Restify {
 							slave: field.type,
 							field: fieldName
 						}));
-						await conn.exec(this.stmtCreateUniqueIndex({
-							table: collectionName, 
-							master: collectionName,
-							slave: field.type,
-							field: fieldName
-						}));
 						break;	
 				}
 			}
@@ -309,12 +303,6 @@ class Restify {
 			+ ` REFERENCES ${mysql.escapeId(p.slave)}(${mysql.escapeId(ID)}));`;
 	}
 
-	stmtCreateUniqueIndex(p) {
-		return `ALTER TABLE ${mysql.escapeId(`${p.master}_${p.field}`)}`
-			+ ` ADD UNIQUE ${mysql.escapeId(`uq_${p.master}_${p.field}`)}`
-			+ ` (${mysql.escapeId(ID)}, ${mysql.escapeId(p.field)})`;
-	}
-
 	stmtAlterTableAdd(p) {
 		//let size = column.size ? `(${column.size})` : ``;
 		return `ALTER TABLE ${mysql.escapeId(p.table)}`
@@ -323,7 +311,7 @@ class Restify {
 
 	stmtAlterTableAddUnique(p) {
 		return `ALTER TABLE ${mysql.escapeId(p.table)}`
-			+ ` ADD UNIQUE (${mysql.escapeId(p.column.name)});`;
+			+ ` ADD UNIQUE INDEX ${mysql.escapeId(`unique_${p.column.name}`)} (${mysql.escapeId(p.column.name)});`;
 	}
 
 

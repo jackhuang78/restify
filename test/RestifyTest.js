@@ -54,7 +54,8 @@ describe('Restify', () => {
 			restify = new Restify(config);
 		});
 		beforeEach(async () => {
-			debugOn();
+			if(process.env.env === 'ci')
+				debugOn();
 			await restify.reset();
 			await restify.sync();
 			conn = restify.connect();
