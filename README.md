@@ -1,4 +1,6 @@
 #restify
+
+[![Join the chat at https://gitter.im/jhuang78/restify](https://badges.gitter.im/jhuang78/restify.svg)](https://gitter.im/jhuang78/restify?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![npm version](https://badge.fury.io/js/%40jhuang78%2Frestify.svg)](https://badge.fury.io/js/%40jhuang78%2Frestify) [![Build Status](https://travis-ci.org/jhuang78/restify.svg)](https://travis-ci.org/jhuang78/restify) [![ghit.me](https://ghit.me/badge.svg?repo=jhuang78/restify)](https://ghit.me/repo/jhuang78/restify)
 
 Access SQL database using the REST styles.
