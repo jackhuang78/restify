@@ -8,7 +8,7 @@ import polyfill from 'babel-polyfill';
 import {argv} from 'yargs';
 
 
-gulp.task('default', ['test'], () => {
+gulp.task('default', () => {
 	
 });
 
@@ -24,20 +24,10 @@ gulp.task('lint', () => {
 });
 
 gulp.task('test', ['lint'], () => {
-	let file = (argv.f != null) 
-		? argv.f : '**/*';
+	let file = (argv.f != null) ? argv.f : '**/*';
 	return gulp.src(`test/${file}.js`)
 		.pipe(babel())
-		//.pipe(mocha({bail: true}));
-		.pipe(mocha());
-});
-
-gulp.task('testq', () => {
-	let file = (argv.f != null) 
-		? argv.f : '**/*';
-	return gulp.src(`test/${file}.js`)
-		.pipe(babel())
-		.pipe(mocha({bail: true}));
+		.pipe(mocha({grep: argv.grep}));
 });
 
 gulp.task('build', ['clean'], () => {
