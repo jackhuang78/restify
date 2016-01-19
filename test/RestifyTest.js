@@ -225,6 +225,9 @@ describe('Restify', () => {
 					res = await conn.get('Person', {age: {'<': 20}, _id: undefined});
 					expect(res).to.have.length(1).that.containSubset([{_id: person1Id}]);
 
+					res = await conn.get('Person', {age: {'>': 20}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);
+
 				});
 			});
 		});
