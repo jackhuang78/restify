@@ -25,9 +25,10 @@ gulp.task('lint', () => {
 
 gulp.task('test', ['lint'], () => {
 	let file = (argv.f != null) ? argv.f : '**/*';
+	//let bail = (argv.b != null) ?  : false;
 	return gulp.src(`test/${file}.js`)
 		.pipe(babel())
-		.pipe(mocha({grep: argv.grep}));
+		.pipe(mocha({grep: argv.grep, bail: argv.b != null}));
 });
 
 gulp.task('build', ['clean'], () => {

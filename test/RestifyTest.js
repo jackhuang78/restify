@@ -6,6 +6,9 @@ import Restify from '../src/Restify';
 import logger from '../src/Logger';
 import faker from 'faker';
 import Chance from 'chance';
+import {argv} from 'yargs';
+
+
 
 let chance = new Chance(1);
 faker.seed(1);
@@ -54,7 +57,7 @@ describe('Restify', () => {
 			restify = new Restify(config);
 		});
 		beforeEach(async () => {
-			if(process.env.env === 'ci')
+			if(process.env.env === 'ci' || argv.d)
 				debugOn();
 			await restify.reset();
 			await restify.sync();
@@ -170,6 +173,58 @@ describe('Restify', () => {
 					expect(res[0]).to.have.property('resume', null);
 					expect(res[0]).to.have.property('emails').that.is.a('array').that.is.empty;
 					expect(res[0]).to.have.property('organizations').that.is.a('array').that.is.empty;
+				});
+			});
+
+			describe('#get', () => {
+				let person1Id, person2Id;
+				let person1 = {
+					name: 'Adam',
+					age: 16,
+					dateOfBirth: new Date('01/20/2000'),
+					height: 170.4,
+					graduated: true
+				};
+				let person2 = {
+					name: 'Bill',
+					age: 40,
+					dateOfBirth: new Date('09/08/1976'),
+					height: 153,
+					graduated: false
+				};
+				beforeEach(async() => {
+					let res;
+					res = await conn.postOrPut('Person', person1);
+					person1Id = res._id;
+					res = await conn.postOrPut('Person', person2);
+					person2Id = res._id;
+				});
+
+				it('should query by equality', async () => {
+					let res;
+					
+					res = await conn.get('Person', {name: 'Adam', _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person1Id}]);
+					
+					res = await conn.get('Person', {age: 40, '*': undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);
+					
+					res = await conn.get('Person', {dateOfBirth: new Date('01/20/2000'), '*': undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person1Id}]);
+					
+					res = await conn.get('Person', {height: 153, '*': undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);
+					
+					res = await conn.get('Person', {graduated: true, '*': undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person1Id}]);
+				});
+
+				it('should query by number relation', async () => {
+					let res;
+
+					res = await conn.get('Person', {age: {'<': 20}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person1Id}]);
+
 				});
 			});
 		});

@@ -337,15 +337,41 @@ class Restify {
 	}
 
 	stmtFormatWhere(where) {
+		//console.log('formatWhere', where);
 		if(where == null)
 			return '(1=1)';
 
-		return '(' + Object.keys(where).map((field) => {
-			let vals = (where[field] instanceof Array) ? where[field] : [where[field]];
-			return vals.map((val) => {
-				return mysql.escape({[field]: val});
-			}).join(' OR ');
-		}).join(') AND (') + ')';
+		return Object.keys(where).map((field) => {
+			if(this.classOf(where[field]) !== 'object') {
+				where[field] = {'=': where[field]};
+			}
+			let condition = Object.keys(where[field])[0];
+			let val = where[field][condition];
+			switch(condition) {
+				case '=': 
+					val = (val instanceof Array) ? val : [val];
+					return val.map((v) => `(${mysql.escapeId(field)} = ${mysql.escape(v)})`)
+							.join(' OR ');
+				case '!=':
+					val = (val instanceof Array) ? val : [val];
+					return val.map((v) => `(${mysql.escapeId(field)} != ${mysql.escape(v)})`)
+							.join(' AND ');
+				case '<':
+				case '>':
+				case '>=':
+				case '<=':
+					return `(${mysql.escapeId(field)} ${condition} ${mysql.escape(val)})`;
+				default:
+					throw new Error(`Unknown conditional operator ${condition}`);
+			}
+		}).join(' AND ');
+
+		// return '(' + Object.keys(where).map((field) => {
+		// 	let vals = (where[field] instanceof Array) ? where[field] : [where[field]];
+		// 	return vals.map((val) => {
+		// 		return mysql.escape({[field]: val});
+		// 	}).join(' OR ');
+		// }).join(') AND (') + ')';
 	}
 
 	//=======
@@ -373,6 +399,20 @@ class Restify {
 	stmtDeleteFrom(p) {
 		return `DELETE FROM ${mysql.escapeId(p.table)}`
 			+ ` WHERE ${this.stmtFormatWhere(p.where)};`;
+	}
+
+	classOf(v) {
+		switch(typeof v) {
+			case 'boolean':
+			case 'number':
+			case 'string':
+				return (typeof v);
+			case 'object':
+				return (v instanceof Array) ? 'array' :
+						(v instanceof Date) ? 'date' : 'object';
+			default:
+				return null;
+		}
 	}
 
 
@@ -411,6 +451,8 @@ class Connection {
 	}
 
 	async delete(collectionName, query) {
+		logger.debug(`DELETE ${collectionName}\n${util.inspect(query)}`);
+
 		let res;
 		let collection = this._restify._collections[collectionName];
 
@@ -457,30 +499,41 @@ class Connection {
 		return res;
 	}
 
-	async get(collection, query) {
-		if(Object.keys(query).indexOf(ALL) >= 0) {
-			for(let fieldName in this._restify._collections[collection]) {
+	async get(collectionName, query) {
+		logger.debug(`GET /${collectionName}\n${util.inspect(query)})`);
+		let collection = this._restify._collections[collectionName];
+
+		if(Object.keys(query).indexOf('*') >= 0) {
+			for(let fieldName in collection) {
 				if(query[fieldName] === undefined)
 					query[fieldName] = undefined;
 			}
-			delete query[ALL];
+			delete query['*'];
 		}
-		if(Object.keys(query).indexOf(ID) < 0)
-			query[ID] = undefined;
+		if(Object.keys(query).indexOf('_id') < 0)
+			query._id = undefined;
 
 		let select = Object.keys(query).filter((fieldName) => {
-			return this._restify._collections[collection][fieldName].store === Store.Main;
+			let field = collection[fieldName];
+			return field.relation == null 
+					|| (field.master && field.relation === Relation.OneToOne)
+					|| (field.master && field.relation === Relation.ManyToOne);
 		});
 		
 		let where = {};
 		for(let fieldName in query) {
-			if(this._restify._collections[collection][fieldName].store === Store.Main && query[fieldName] !== undefined) {
-				where[fieldName] = query[fieldName];
+			if(collection[fieldName].relation == null && query[fieldName] !== undefined) {
+				where[fieldName] = (query[fieldName] instanceof Object)
+						? query[fieldName]
+						: {'=': query[fieldName]};
 			}
+			// if(this._restify._collections[collectionName][fieldName].store === Store.Main && query[fieldName] !== undefined) {
+			// 	where[fieldName] = query[fieldName];
+			// }
 		}
 
 		let items = await this.exec(this._restify.stmtSelectFrom({
-			table: collection,
+			table: collectionName,
 			select: select,
 			where: where
 		}));
@@ -488,9 +541,7 @@ class Connection {
 		for(let item of items) {
 			// query for slave fields
 			for(let fieldName in query) {
-				if(fieldName === ALL)
-					continue;
-				let field = this._restify._collections[collection][fieldName];
+				let field = collection[fieldName];
 				
 				if(field.store === Store.Target) {
 					let res = await this.exec(this._restify.stmtSelectFrom({
@@ -507,7 +558,7 @@ class Connection {
 
 				} else if(field.store === Store.MainJoint) {
 					let res = await this.exec(this._restify.stmtSelectFrom({
-						table: `${collection}_${fieldName}`,
+						table: `${collectionName}_${fieldName}`,
 						select: [fieldName],
 						where: {[ID]: item[ID]}
 					}));
@@ -527,7 +578,7 @@ class Connection {
 		// TODO this seems very inefficient
 		for(let item of items) {
 			for(let field in item) {
-				if(this._restify._collections[collection][field].type === Type.boolean) {
+				if(collection[field].type === Type.boolean) {
 					item[field] = (item[field] === 1);
 				}
 			}
@@ -547,18 +598,7 @@ class Connection {
 		return filteredItem;
 	}
 
-	classOf(v) {
-		switch(typeof v) {
-			case 'boolean':
-			case 'number':
-			case 'string':
-				return (typeof v);
-			case 'object':
-				return (v instanceof Array) ? 'array' : 'object';
-			default:
-				return null;
-		}
-	}
+	
 
 
 
@@ -571,7 +611,11 @@ class Connection {
 
 		// create the item if it doesn't yet exist
 		if(item._id == null) {
-			let columns = Object.keys(item).filter((fieldName) => collection[fieldName].relation == null);
+			let columns = Object.keys(item).filter((fieldName) => {
+				if(collection[fieldName] == null)
+					throw new Error(`FieldNotFoundError: ${collectionName}.${fieldName}`);
+				return (collection[fieldName].relation == null);
+			});
 			let values = columns.map((columnName) => item[columnName]);
 			res = await this.exec(this._restify.stmtInsertInto({
 				table: collectionName,
@@ -603,7 +647,7 @@ class Connection {
 			if(field.relation === Relation.OneToOne || field.relation === Relation.ManyToOne) {
 				// case: ToOne relations
 				let child = value;
-				let childClass = this.classOf(child);
+				let childClass = this._restify.classOf(child);
 
 				if(childClass === 'number') { 
 					// child id given
@@ -659,7 +703,7 @@ class Connection {
 			} else {
 				// case: ToMany relations
 				let children = value;
-				let childrenClass = this.classOf(children);
+				let childrenClass = this._restify.classOf(children);
 				if(childrenClass !== 'array') {
 					throw new Error(`Expecting array for OneToMany relation, but got ${childrenClass}.`);
 				}
@@ -667,7 +711,7 @@ class Connection {
 				itemIds[fieldName] = [];
 
 				for(let child of children) {
-					let childClazz = this.classOf(child);
+					let childClazz = this._restify.classOf(child);
 					if(childClazz === 'object') {
 						res = await postOrPut(field.type, child);
 						itemIds[fieldName].push(res);
