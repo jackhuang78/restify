@@ -262,8 +262,22 @@ describe('Restify', () => {
 
 					res = await conn.get('Person', {height: {'<=': 300}, _id: undefined});
 					expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person2Id}]);
+				});
 
+				it('should query by string relation', async () => {
+					let res;
 
+					res = await conn.get('Person', {name: {'=': 'Bill'}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);
+
+					res = await conn.get('Person', {name: {'!=': 'Bill'}, _id: undefined});
+					expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person3Id}]);
+
+					// res = await conn.get('Person', {name: {'~': '*a*'}, _id: undefined});
+					// expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person3Id}]);					
+
+					// res = await conn.get('Person', {name: {'!~': '*a*'}, _id: undefined});
+					// expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);					
 				});
 			});
 		});

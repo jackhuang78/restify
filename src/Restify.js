@@ -356,6 +356,15 @@ class Restify {
 					val = (val instanceof Array) ? val : [val];
 					return val.map((v) => `(${mysql.escapeId(field)} != ${mysql.escape(v)})`)
 							.join(' AND ');
+				case '~':
+					val = (val instanceof Array) ? val : [val];
+					return val.map((v) => `(${mysql.escapeId(field)} LIKE ${mysql.escape(v)})`)
+							.join(' OR ');
+				case '!~':
+					val = (val instanceof Array) ? val : [val];
+					return val.map((v) => `(${mysql.escapeId(field)} NOT LIKE ${mysql.escape(v)})`)
+							.join(' AND ');
+							
 				case '<':
 				case '>':
 				case '>=':
