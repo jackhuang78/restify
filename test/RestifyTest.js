@@ -295,6 +295,28 @@ describe('Restify', () => {
 					res = await conn.get('Person', {graduated: {'!=': false}, _id: undefined});
 					expect(res).to.have.length(1).that.containSubset([{_id: person1Id}]);
 				});
+
+				it('should query by date relation', async () => {
+					let res;
+
+					res = await conn.get('Person', {dateOfBirth: {'=': new Date('02/02/2002')}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);					
+
+					res = await conn.get('Person', {dateOfBirth: {'!=': new Date('02/02/2002')}, _id: undefined});
+					expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person3Id}]);
+
+					res = await conn.get('Person', {dateOfBirth: {'>': new Date('02/02/2002')}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person3Id}]);
+
+					res = await conn.get('Person', {dateOfBirth: {'>=': new Date('02/02/2002')}, _id: undefined});
+					expect(res).to.have.length(2).that.containSubset([{_id: person3Id}, {_id: person2Id}]);
+
+					res = await conn.get('Person', {dateOfBirth: {'<': new Date('02/02/2002')}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person1Id}]);
+
+					res = await conn.get('Person', {dateOfBirth: {'<=': new Date('02/02/2002')}, _id: undefined});
+					expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person2Id}]);
+				});
 			});
 		});
 
