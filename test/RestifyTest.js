@@ -239,6 +239,12 @@ describe('Restify', () => {
 					res = await conn.get('Person', {age: {'!=': 20}, _id: undefined});
 					expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person3Id}]);
 
+					res = await conn.get('Person', {age: {'=': [10,30]}, _id: undefined});
+					expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person3Id}]);
+
+					res = await conn.get('Person', {age: {'!=': [10, 30]}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);					
+
 					res = await conn.get('Person', {age: {'>': 20}, _id: undefined});
 					expect(res).to.have.length(1).that.containSubset([{_id: person3Id}]);
 
@@ -273,11 +279,23 @@ describe('Restify', () => {
 					res = await conn.get('Person', {name: {'!=': 'Bill'}, _id: undefined});
 					expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person3Id}]);
 
-					// res = await conn.get('Person', {name: {'~': '*a*'}, _id: undefined});
-					// expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person3Id}]);					
+					res = await conn.get('Person', {name: {'=': ['Adam', 'Charles']}, _id: undefined});
+					expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person3Id}]);
+					
+					res = await conn.get('Person', {name: {'!=': ['Adam', 'Charles']}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);
 
-					// res = await conn.get('Person', {name: {'!~': '*a*'}, _id: undefined});
-					// expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);					
+					res = await conn.get('Person', {name: {'~': '%a%'}, _id: undefined});
+					expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person3Id}]);					
+
+					res = await conn.get('Person', {name: {'!~': '%a%'}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);					
+
+					res = await conn.get('Person', {name: {'~': ['%m%', '%r%']}, _id: undefined});
+					expect(res).to.have.length(2).that.containSubset([{_id: person1Id}, {_id: person3Id}]);					
+
+					res = await conn.get('Person', {name: {'!~': ['%m%', '%r%']}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);					
 				});
 
 				it('should query by boolean relation', async () => {
