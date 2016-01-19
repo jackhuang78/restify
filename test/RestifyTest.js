@@ -279,6 +279,22 @@ describe('Restify', () => {
 					// res = await conn.get('Person', {name: {'!~': '*a*'}, _id: undefined});
 					// expect(res).to.have.length(1).that.containSubset([{_id: person2Id}]);					
 				});
+
+				it('should query by boolean relation', async () => {
+					let res;
+
+					res = await conn.get('Person', {graduated: {'=': true}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person1Id}]);
+
+					res = await conn.get('Person', {graduated: {'!=': true}, _id: undefined});
+					expect(res).to.have.length(2).that.containSubset([{_id: person2Id}, {_id: person3Id}]);
+
+					res = await conn.get('Person', {graduated: {'=': false}, _id: undefined});
+					expect(res).to.have.length(2).that.containSubset([{_id: person2Id}, {_id: person3Id}]);
+
+					res = await conn.get('Person', {graduated: {'!=': false}, _id: undefined});
+					expect(res).to.have.length(1).that.containSubset([{_id: person1Id}]);
+				});
 			});
 		});
 
