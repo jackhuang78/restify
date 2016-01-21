@@ -364,12 +364,16 @@ class Restify {
 					val = (val instanceof Array) ? val : [val];
 					return val.map((v) => `(${mysql.escapeId(field)} NOT LIKE ${mysql.escape(v)})`)
 							.join(' AND ');
-							
 				case '<':
 				case '>':
 				case '>=':
 				case '<=':
 					return `(${mysql.escapeId(field)} ${condition} ${mysql.escape(val)})`;
+				case '><':
+					return `(${mysql.escapeId(field)} > ${mysql.escape(val[0])} AND ${mysql.escapeId(field)} < ${mysql.escape(val[0])})`;
+				case '<>':
+					return `(${mysql.escapeId(field)} < ${mysql.escape(val[0])} OR  ${mysql.escapeId(field)} > ${mysql.escape(val[0])})`;
+				
 				default:
 					throw new Error(`Unknown conditional operator ${condition}`);
 			}
