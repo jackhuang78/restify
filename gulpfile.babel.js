@@ -8,7 +8,7 @@ import polyfill from 'babel-polyfill';
 import {argv} from 'yargs';
 
 
-gulp.task('default', () => {
+gulp.task('default', ['test'], () => {
 	
 });
 
