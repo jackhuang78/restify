@@ -15,12 +15,12 @@ class Server {
 
 		//
 		this.app.get('/', (req, res) => {
-			return res.send('Hello');
+			return res.json({status: 'ok'});
 		});
 	}
 
 	async start(port) {
-		logger.info('SERVER> starting...');
+		//logger.info('SERVER> starting...');
 		this.port = port;
 		expect(port).to.be.an.int;
 		return new Promise((res, rej) => {
@@ -35,7 +35,7 @@ class Server {
 	}
 
 	async stop() {
-		logger.info('SERVER> stopping...');
+		//logger.info('SERVER> stopping...');
 		return new Promise((res, rej) => {
 			if(!this.server)
 				return rej(new Error('ENOTRUNNING'));
