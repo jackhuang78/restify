@@ -18,6 +18,8 @@
   "author": "Jack Huang",
   "license": "ISC",
   "dependencies": {
+    "body-parser": "^1.14.2",
+    "express": "^4.13.4",
     "mysql": "^2.9.0",
     "winston": "^2.1.0"
   },
