@@ -1,6 +1,7 @@
 import mysql from 'mysql';
 import logger from './Logger';
 import util from 'util';
+import chai, {expect} from 'chai';
 
 // TODO
 // make this work with single table query only!
@@ -51,82 +52,170 @@ const ALL = '*';
  */
 class Restify {
 	
-	constructor(config, config2) {
+	constructor(config) {
+		expect(config).to.contain.all.keys(['host', 'user', 'password', 'database']);
 
-		// read database configuration
-		// and create mysql connection
-		this._database = {
-			host: config.database.host,
-			user: config.database.user,
-			pass: config.database.pass,
-			db: config.database.db
-		};
+		this.config = Object.assign(config);
 
-		// create records for each collection and the fields of each
-		this._collections = {};
-		for(let collectionName in config.schema) {
-			this._collections[collectionName] = {
-				_id: {
-					type: Type.int,
-					nullable: false,
-					key: true
-				}
-			};
+		
 
-			for(let fieldName in config.schema[collectionName]) {
-				let field = config.schema[collectionName][fieldName];
+	// constructor(config, dbConfig) {
+	// 	if(dbConfig != null) {
+	// 		expect(dbConfig).to.have.all.keys(['host', 'user', 'password', 'database']);
+	// 		this.dbConfig = Object.assign(dbConfig);
+	// 		return;
+	// 	}
 
-				this._collections[collectionName][fieldName] = {
-					type: (field.type == null) ? Type.string : field.type,
-					nullable: (field.nullable) ? true : false,
-					relation: Relation[field.relation],
-					master: Relation[field.relation] ? true : false,
-					as: field.as
-				};
-			}
-		}
+	// 	// read database configuration
+	// 	// and create mysql connection
+	// 	this._database = {
+	// 		host: config.database.host,
+	// 		user: config.database.user,
+	// 		pass: config.database.pass,
+	// 		db: config.database.db
+	// 	};
 
-		// create relation between collections
-		for(let collectionName in this._collections) {
-			let collection = this._collections[collectionName];
+	// 	// create records for each collection and the fields of each
+	// 	this._collections = {};
+	// 	for(let collectionName in config.schema) {
+	// 		this._collections[collectionName] = {
+	// 			_id: {
+	// 				type: Type.int,
+	// 				nullable: false,
+	// 				key: true
+	// 			}
+	// 		};
 
-			for(let fieldName in collection) {
-				let field = collection[fieldName];
-				if(field.master) {
-					this._collections[field.type][field.as] = {
-						type: collectionName,
-						nullable: false,
-						relation: this.invRelation(field.relation),
-						as: fieldName
-					};
-				}
-			}
-		}
+	// 		for(let fieldName in config.schema[collectionName]) {
+	// 			let field = config.schema[collectionName][fieldName];
 
-		// add some more metadata
-		for(let collectionName in this._collections) {
-			let collection = this._collections[collectionName];
-			for(let fieldName in collection) {
-				let field = collection[fieldName];
-				switch(field.relation) {
-					case Relation.OneToOne:
-						field.store = field.master ? Store.Main : Store.Target;
-						break;
-					case Relation.ManyToOne:
-						field.store = Store.Main;
-						break;
-					case Relation.OneToMany:
-						field.store = Store.Target;
-						break;
-					case Relation.ManyToMany:
-						field.store = field.master ? Store.MainJoint : Store.TargetJoint;
-						break;
-					default:
-						field.store = Store.Main;
-				}
-			}
-		}
+	// 			this._collections[collectionName][fieldName] = {
+	// 				type: (field.type == null) ? Type.string : field.type,
+	// 				nullable: (field.nullable) ? true : false,
+	// 				relation: Relation[field.relation],
+	// 				master: Relation[field.relation] ? true : false,
+	// 				as: field.as
+	// 			};
+	// 		}
+	// 	}
+
+	// 	// create relation between collections
+	// 	for(let collectionName in this._collections) {
+	// 		let collection = this._collections[collectionName];
+
+	// 		for(let fieldName in collection) {
+	// 			let field = collection[fieldName];
+	// 			if(field.master) {
+	// 				this._collections[field.type][field.as] = {
+	// 					type: collectionName,
+	// 					nullable: false,
+	// 					relation: this.invRelation(field.relation),
+	// 					as: fieldName
+	// 				};
+	// 			}
+	// 		}
+	// 	}
+
+	// 	// add some more metadata
+	// 	for(let collectionName in this._collections) {
+	// 		let collection = this._collections[collectionName];
+	// 		for(let fieldName in collection) {
+	// 			let field = collection[fieldName];
+	// 			switch(field.relation) {
+	// 				case Relation.OneToOne:
+	// 					field.store = field.master ? Store.Main : Store.Target;
+	// 					break;
+	// 				case Relation.ManyToOne:
+	// 					field.store = Store.Main;
+	// 					break;
+	// 				case Relation.OneToMany:
+	// 					field.store = Store.Target;
+	// 					break;
+	// 				case Relation.ManyToMany:
+	// 					field.store = field.master ? Store.MainJoint : Store.TargetJoint;
+	// 					break;
+	// 				default:
+	// 					field.store = Store.Main;
+	// 			}
+	// 		}
+	// 	}
+	// }
 	}
+
+	async sync() {
+		let res;
+		let conn = this.connect();
+		let schema = {};
+
+		
+		res = await conn.exec('USE information_schema;');
+
+ 		res = await conn.exec(`SELECT * FROM columns WHERE table_schema='${this.config.database}'`);
+ 		//console.log(res);
+ 		for(let column of res) {
+ 			let tableName = column.TABLE_NAME;
+ 			if(schema[tableName] == null)
+ 				schema[tableName] = {};
+			let table = schema[tableName];
+ 			
+ 			let columnName = column.COLUMN_NAME;
+ 			//console.log('size', tableName, columnName, column.CHARACTER_MAXIMUM_LENGTH, column.NUMERIC_PRECISION, column.CHARACTER_MAXIMUM_LENGTH || column.NUMERIC_PRECISION);
+ 			table[columnName] = {
+ 				nullable: (column.IS_NULLABLE === 'YES'),
+ 				defaultValue: column.COLUMN_DEFAULT,
+ 				type: column.DATA_TYPE,
+ 				size: column.CHARACTER_MAXIMUM_LENGTH || column.NUMERIC_PRECISION,
+ 				scale: column.NUMERIC_SCALE,
+ 				primary: (column.COLUMN_KEY === 'PRI'),
+ 				//foreign: (column.COLUMN_KEY === 'MUL'),
+ 				unique: (column.COLUMN_KEY === 'UNI'),
+ 				autoInc: (column.EXTRA === 'auto_increment')
+ 			};
+ 		}
+
+ 		res = await conn.exec(`SELECT * FROM key_column_usage WHERE table_schema='${this.config.database}';`);
+ 		//console.log(res);
+ 		for(let constraint of res) {
+ 			let tableName = constraint.TABLE_NAME;
+ 			let columnName = constraint.COLUMN_NAME;
+ 			if(schema[tableName] && schema[tableName][columnName]) {
+ 				let table = schema[tableName];
+ 				let column = table[columnName];
+ 				if(constraint.REFERENCED_TABLE_NAME) {
+ 					column.foreign = true;
+ 					column.referencedTable = constraint.REFERENCED_TABLE_NAME;
+ 					column.referencedColumn = constraint.REFERENCED_COLUMN_NAME;
+
+ 					// create alias for foreign keys
+ 					if(columnName.endsWith('_id') || columnName.endsWith('_fk')) {
+ 						column.alterName = columnName.slice(0, -3);
+ 						if(table[column.alterName] == null) {
+ 							table[column.alterName] = {alias: columnName};
+ 						}
+ 					}
+
+ 					// create back reference
+ 					schema[column.referencedTable][`${column.alterName}_of_${tableName}`] = {
+ 						referencedTable: tableName,
+ 						referencedColumn: columnName
+ 					};
+ 				}
+ 			}
+ 		}
+
+
+ 		console.log(schema);
+
+		res = await conn.end();
+
+		this._schema = schema;
+	}
+
+	schema() {
+		return this._schema;
+	}
+
+
 
 	/**
 	 * Get a list of collections in the database.
@@ -171,69 +260,69 @@ class Restify {
 	 * @param  {Boolean} update - To update or not.
 	 * @return {Promise<null>} 
 	 */
-	async sync(update) {
-		let conn = this.connect();
+	// async sync(update) {
+	// 	let conn = this.connect();
 
-		// create table with id
-		for(let collectionName of Object.keys(this._collections)) {
-			await conn.exec(this.stmtCreateTable({
-				table: collectionName
-			}));
-		}
+	// 	// create table with id
+	// 	for(let collectionName of Object.keys(this._collections)) {
+	// 		await conn.exec(this.stmtCreateTable({
+	// 			table: collectionName
+	// 		}));
+	// 	}
 
-		// add columns
-		for(let collectionName of Object.keys(this._collections)) {
-			let collection = this._collections[collectionName];
-			for(let fieldName of Object.keys(collection)) {
-				let field = collection[fieldName];
+	// 	// add columns
+	// 	for(let collectionName of Object.keys(this._collections)) {
+	// 		let collection = this._collections[collectionName];
+	// 		for(let fieldName of Object.keys(collection)) {
+	// 			let field = collection[fieldName];
 
-				if(fieldName === '_id')
-					continue;
+	// 			if(fieldName === '_id')
+	// 				continue;
 				
-				if(!field.relation) {
-					await conn.exec(this.stmtAlterTableAdd({
-						table: collectionName, 
-						column: {name: fieldName, type: field.type}
-					}));
-					continue;
-				}
+	// 			if(!field.relation) {
+	// 				await conn.exec(this.stmtAlterTableAdd({
+	// 					table: collectionName, 
+	// 					column: {name: fieldName, type: field.type}
+	// 				}));
+	// 				continue;
+	// 			}
 
-				if(!field.master)
-					continue;
+	// 			if(!field.master)
+	// 				continue;
 
-				switch(field.relation) {
-					case Relation.OneToOne:
-						await conn.exec(this.stmtAlterTableAddFk({
-							table: collectionName,
-							column: {name: fieldName, type: field.type}
-						}));
-						await conn.exec(this.stmtAlterTableAddUnique({
-							table: collectionName,
-							column: {name: fieldName}
-						}));
-						break;
-					case Relation.ManyToOne:
-						await conn.exec(this.stmtAlterTableAddFk({
-							table: collectionName,
-							column: {name: fieldName, type: field.type}
-						}));
-						break;
-					case Relation.ManyToMany:
-						await conn.exec(this.stmtCreateJoinTable({
-							table: collectionName, 
-							master: collectionName,
-							slave: field.type,
-							field: fieldName
-						}));
-						break;	
-				}
-			}
-		}
+	// 			switch(field.relation) {
+	// 				case Relation.OneToOne:
+	// 					await conn.exec(this.stmtAlterTableAddFk({
+	// 						table: collectionName,
+	// 						column: {name: fieldName, type: field.type}
+	// 					}));
+	// 					await conn.exec(this.stmtAlterTableAddUnique({
+	// 						table: collectionName,
+	// 						column: {name: fieldName}
+	// 					}));
+	// 					break;
+	// 				case Relation.ManyToOne:
+	// 					await conn.exec(this.stmtAlterTableAddFk({
+	// 						table: collectionName,
+	// 						column: {name: fieldName, type: field.type}
+	// 					}));
+	// 					break;
+	// 				case Relation.ManyToMany:
+	// 					await conn.exec(this.stmtCreateJoinTable({
+	// 						table: collectionName, 
+	// 						master: collectionName,
+	// 						slave: field.type,
+	// 						field: fieldName
+	// 					}));
+	// 					break;	
+	// 			}
+	// 		}
+	// 	}
 		
 
 
-		await conn.end();
-	}
+	// 	await conn.end();
+	// }
 
 
 	
@@ -382,10 +471,10 @@ class Connection {
 	constructor(restify) {
 		this._restify = restify;
 		this._conn = mysql.createConnection({
-			host: restify._database.host,
-			user: restify._database.user,
-			password: restify._database.pass,
-			database: restify._database.db
+			host: restify.config.host,
+			user: restify.config.user,
+			password: restify.config.password,
+			database: restify.config.database
 		});
 	}
 

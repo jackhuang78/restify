@@ -2,9 +2,13 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import chai, {expect} from 'chai';
 import logger from './Logger';
+import Restify from './Restify';
 
 class Server {
-	constructor() {
+	constructor(config) {
+		this.restify = new Restify(config);
+
+
 		// Express instance
 		this.app = express();
 
@@ -42,7 +46,14 @@ class Server {
 			
 			return this.server.close(res);
 		});
-		
+	}
+
+	async sync() {
+		await this.restify.sync();
+	}
+
+	schema() {
+		return this.restify.schema();
 	}
 }
 
