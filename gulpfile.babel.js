@@ -6,6 +6,7 @@ import jsdoc from 'gulp-jsdoc';
 import del from 'del';
 import polyfill from 'babel-polyfill';
 import {argv} from 'yargs';
+import Server from './src/Server';
 
 
 gulp.task('default', ['test'], () => {
@@ -29,6 +30,17 @@ gulp.task('test', ['lint'], () => {
 		.pipe(babel())
 		.pipe(mocha({grep: argv.grep}));
 });
+
+gulp.task('run', ['lint'], async () => {
+	let server = new Server({
+		host: 'localhost',
+		user: 'root',
+		password: '',
+		database: 'restify'
+	});
+	await server.start(9999);
+});
+
 
 gulp.task('build', ['clean'], () => {
 	return gulp.src('src/Restify.js')

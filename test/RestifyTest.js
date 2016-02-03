@@ -74,18 +74,15 @@ describe('#Restify', () => {
 			expect(schema.User.id).to.containSubset({type: 'int'});
 			expect(schema.User.username).to.containSubset({type: 'varchar', size: 20});
 			expect(schema.User.plan_id).to.containSubset({type: 'int'});
-
 			expect(schema.Plan.id).to.containSubset({type: 'int'});
 			expect(schema.Plan.name).to.containSubset({type: 'varchar', size: 20});
 			expect(schema.Plan.monthly_fee).to.containSubset({type: 'decimal', size: 5, scale: 2});
-
 			expect(schema.Repository.id).to.containSubset({type: 'int'});
 			expect(schema.Repository.name).to.containSubset({type: 'varchar', size: 20});
 			expect(schema.Repository.description).to.containSubset({type: 'varchar', size: 100});
 			expect(schema.Repository.public).to.containSubset({type: 'tinyint'});			
 			expect(schema.Repository.created).to.containSubset({type: 'date'});			
 			expect(schema.Repository.owner_id).to.containSubset({type: 'int'});
-
 			expect(schema.Contribution.user_id).to.containSubset({type: 'int'});
 			expect(schema.Contribution.repo_id).to.containSubset({type: 'int'});
 			expect(schema.Contribution.role).to.containSubset({type: 'varchar', size: 20});
@@ -97,17 +94,13 @@ describe('#Restify', () => {
 			expect(schema.User.id).to.containSubset({primary: true});
 			expect(schema.User.username).to.containSubset({unique: true});
 			expect(schema.User.plan_id).to.containSubset({foreign: true});
-
 			expect(schema.Plan.id).to.containSubset({primary: true});
 			expect(schema.Plan.name).to.containSubset({unique: true});
-
 			expect(schema.Repository.id).to.containSubset({primary: true});
 			expect(schema.Repository.name).to.containSubset({unique: true});
 			expect(schema.Repository.owner_id).to.containSubset({foreign: true});
-
 			expect(schema.Contribution.user_id).to.containSubset({primary: true});
-			expect(schema.Contribution.repo_id).to.containSubset({primary: true});
-			
+			expect(schema.Contribution.repo_id).to.containSubset({primary: true});		
 		});
 
 		it('should sync column reference correctly', async () => {
@@ -121,6 +114,7 @@ describe('#Restify', () => {
 
 		it('should sync column reference alias correctly', async () => {
 			let schema = restify.schema();
+
 			expect(schema.User.plan).to.containSubset({alias: 'plan_id'});
 			expect(schema.Repository.owner).to.containSubset({alias: 'owner_id'});
 			expect(schema.Contribution.user).to.containSubset({alias: 'user_id'});
@@ -129,12 +123,11 @@ describe('#Restify', () => {
 
 		it('should sync column back reference correctly', async () => {
 			let schema = restify.schema();
+
 			expect(schema.Plan.plan_of_User).to.containSubset({referencedTable: 'User', referencedColumn: 'plan_id'});
 			expect(schema.User.owner_of_Repository).to.containSubset({referencedTable: 'Repository', referencedColumn: 'owner_id'});
 			expect(schema.User.user_of_Contribution).to.containSubset({referencedTable: 'Contribution', referencedColumn: 'user_id'});
 			expect(schema.Repository.repo_of_Contribution).to.containSubset({referencedTable: 'Contribution', referencedColumn: 'repo_id'});
-
-
 		});
 	
 	});

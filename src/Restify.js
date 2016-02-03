@@ -212,7 +212,7 @@ class Restify {
 	}
 
 	schema() {
-		return this._schema;
+		return Object.assign(this._schema);
 	}
 
 
