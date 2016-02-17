@@ -104,7 +104,7 @@ describe('# Connection', () => {
 		});
 	});
 
-	describe.only('#insert', () => {
+	describe('#insert', () => {
 		let conn;
 
 		beforeEach(async () => {
@@ -156,12 +156,41 @@ describe('# Connection', () => {
 			res = await conn.select('table1', ['field1'], ['id', '=', id2]);
 			expect(res).to.have.length(1);
 			expect(res).to.containSubset([{field1: 4}]);
+		});
+	});
 
-
-
-
+	describe.only('#update', () => {
+		let conn;
+		
+		beforeEach(async () => {
+			logger.debugOn();
+			await resetDb();
+			await execSql([
+				`USE ${dbConfig.database}`,
+				`CREATE TABLE table1(id INT NOT NULL AUTO_INCREMENT, PRIMARY KEY(id), field1 INT, field2 VARCHAR(10))`,
+				`INSERT INTO table1(field1, field2) VALUES (1, 'one'), (2, 'two'), (3, 'three'), (4, 'four')`
+			]);
+			conn = connect();
 		});
 
+		afterEach(async () => {
+			conn.end();
+		});
+
+		it('should udpate rows', async () => {
+			let res;
+
+			res = await conn.update('table1', {field1: 10, field2: 'ten'}, ['OR', ['field1', '=', 1], ['field2', '=', 'two']]);
+			
+			res = await conn.select('table1', ['field1'], ['field2', '=', 'ten']);
+			expect(res).to.have.length(2);
+			expect(res).to.containSubset([{field1: 10}, {field1: 10}]);
+
+			res = await conn.select('table1', ['field1'], ['field2', '!=', 'ten']);
+			expect(res).to.have.length(2);
+			expect(res).to.containSubset([{field1: 3}, {field1: 4}]);
+
+		});
 
 	});
 	

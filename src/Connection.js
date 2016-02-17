@@ -75,6 +75,14 @@ class Connection {
 		return res.insertId;
 	}
 
+	async update(table, set, where) {
+		let stmt = (where == null) 
+				? `UPDATE ${mysql.escapeId(table)} SET ${mysql.escape(set)};`
+				: `UPDATE ${mysql.escapeId(table)} SET ${mysql.escape(set)} WHERE ${this._parseWhere(where)};`;
+		let res = await this.exec(stmt);
+		return res;
+	}
+
 }
 
 export default Connection;
