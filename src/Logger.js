@@ -23,5 +23,12 @@ logger.setConsoleLevel = (level) => {
 	logger.transports.console.level = level;
 };
 
+logger.debugOn = () => {
+	logger.setConsoleLevel('debug');
+};
+
+logger.debugOff = () => {
+	logger.setConsoleLevel('info');
+};
 
 export default logger;

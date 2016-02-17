@@ -43,10 +43,9 @@ describe('# Connection', () => {
 	});
 
 
-	describe.only('#select()', () => {
+	describe('#select()', () => {
 		let conn;
 		beforeEach(async () => {
-			logger.setConsoleLevel('debug');
 			await resetDb();
 			await execSql([
 				`USE ${dbConfig.database}`,
@@ -106,27 +105,6 @@ describe('# Connection', () => {
 
 	});
 
-	// describe('#operation', () => {
-	// 	let conn;
-	// 	beforeEach(async () => {
-	// 		let ret = await exec('ls -lash');
-	// 		console.log(ret);
-
-	// 		conn = connect();
-
-	// 	});
-
-	// 	describe('#insert()', () => {
-	// 		it('should execute insert statement', async () => {
-	// 			let res;
-	// 			res = await conn.exec('DROP TABLE restify;');
-	// 			res = await conn.exec('CREATE TABLE restify(id INT, NOT NULL AUTO_INCREMENT, PRIMARY KEY(id), val VARCHAR(10));');
-
-	// 			res = await conn.insert('test', ['val'], ['val1']);
-	// 			await conn.end();
-	// 		});
-	// 	});
-	// });
-
+	
 	
 });

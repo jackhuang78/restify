@@ -61,7 +61,7 @@ class Connection {
 	}
 
 	async select(table, columns, where) {
-		let stmt = (where == null || where === '' || where.length === 0 || where === {}) 
+		let stmt = (where == null) 
 				? `SELECT ${mysql.escapeId(columns)} FROM ${mysql.escapeId(table)};`
 				: `SELECT ${mysql.escapeId(columns)} FROM ${mysql.escapeId(table)} WHERE ${this._parseWhere(where)};`;
 		let res = await this.exec(stmt);
