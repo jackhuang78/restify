@@ -14,6 +14,8 @@ import Connection from '../src/Connection';
 chai.use(chaiSubset);
 chai.use(chaiDatetime);
 
+logger.debugOn();
+
 let resetDb = async () => {
 	return await execSql([
 		`DROP DATABASE IF EXISTS ${dbConfig.database}`,
@@ -108,7 +110,6 @@ describe('# Connection', () => {
 		let conn;
 
 		beforeEach(async () => {
-			logger.debugOn();
 			await resetDb();
 			await execSql([
 				`USE ${dbConfig.database}`,
@@ -143,13 +144,17 @@ describe('# Connection', () => {
 		});
 
 		it('should insert a row and return the generated id', async () => {
-			let id1 = await conn.insert('table1', ['field1'], [[3]]);
+			let res ;
+
+			res = await conn.insert('table1', ['field1'], [[3]]);
+			let id1 = res.insertId;
 			expect(id1).to.be.an.int;
 
-			let id2 = await conn.insert('table1', ['field1'], [[4]]);
+			res = await conn.insert('table1', ['field1'], [[4]]);
+			let id2 = res.insertId;
 			expect(id2).to.be.an.int;
 
-			let res = await conn.select('table1', ['field1'], ['id', '=', id1]);
+			res = await conn.select('table1', ['field1'], ['id', '=', id1]);
 			expect(res).to.have.length(1);
 			expect(res).to.containSubset([{field1: 3}]);
 
@@ -159,11 +164,10 @@ describe('# Connection', () => {
 		});
 	});
 
-	describe.only('#update', () => {
+	describe('#update', () => {
 		let conn;
 		
 		beforeEach(async () => {
-			logger.debugOn();
 			await resetDb();
 			await execSql([
 				`USE ${dbConfig.database}`,
@@ -189,9 +193,35 @@ describe('# Connection', () => {
 			res = await conn.select('table1', ['field1'], ['field2', '!=', 'ten']);
 			expect(res).to.have.length(2);
 			expect(res).to.containSubset([{field1: 3}, {field1: 4}]);
+		});
+	});
 
+	describe.only('#delete', () => {
+		let conn;
+		
+		beforeEach(async () => {
+			await resetDb();
+			await execSql([
+				`USE ${dbConfig.database}`,
+				`CREATE TABLE table1(id INT NOT NULL AUTO_INCREMENT, PRIMARY KEY(id), field1 INT, field2 VARCHAR(10))`,
+				`INSERT INTO table1(field1, field2) VALUES (1, 'one'), (2, 'two'), (3, 'three'), (4, 'four')`
+			]);
+			conn = connect();
 		});
 
+		afterEach(async () => {
+			conn.end();
+		});
+
+		it('should delete rows', async () => {
+			let res;
+
+			res = await conn.delete('table1', ['OR', ['field1', '=', 1], ['field2', '=', 'two']]);
+			
+			res = await conn.select('table1', ['field1']);
+			expect(res).to.have.length(2);
+			expect(res).to.containSubset([{field1: 3}, {field1: 4}]);
+		});
 	});
 	
 	

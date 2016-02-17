@@ -72,13 +72,21 @@ class Connection {
 		let stmt = `INSERT INTO ${mysql.escapeId(table)}(${mysql.escapeId(columns)})` 
 				+ ` VALUES ${mysql.escape(values)};`;
 		let res = await this.exec(stmt);
-		return res.insertId;
+		return res;
 	}
 
 	async update(table, set, where) {
 		let stmt = (where == null) 
 				? `UPDATE ${mysql.escapeId(table)} SET ${mysql.escape(set)};`
 				: `UPDATE ${mysql.escapeId(table)} SET ${mysql.escape(set)} WHERE ${this._parseWhere(where)};`;
+		let res = await this.exec(stmt);
+		return res;
+	}
+
+	async delete(table, where) {
+		let stmt = (where == null)
+				? `DELETE FROM ${mysql.escapeId(table)}`
+				: `DELETE FROM ${mysql.escapeId(table)} WHERE ${this._parseWhere(where)}`;
 		let res = await this.exec(stmt);
 		return res;
 	}
