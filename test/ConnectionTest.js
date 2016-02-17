@@ -123,21 +123,27 @@ describe('# Connection', () => {
 		});
 
 		it('should insert a row', async () => {
-			let res = await conn.insert('table1', ['field1'], [[1]]);
+			let res;
+
+			res = await conn.insert('table1', ['field1'], [[1]]);
 			res = await conn.select('table1', ['field1']);
 			expect(res).to.have.length(1);
 			expect(res).to.containSubset([{field1: 1}]);
 		});
 
 		it('should insert multiple rows', async () => {
-			let res = await conn.insert('table1', ['field1'], [[1],[3]]);
+			let res;
+
+			res = await conn.insert('table1', ['field1'], [[1],[3]]);
 			res = await conn.select('table1', ['field1']);
 			expect(res).to.have.length(2);
 			expect(res).to.containSubset([{field1: 1}, {field1: 3}]);
 		});
 
 		it('should insert multiple rows with multiple columns', async () => {
-			let res = await conn.insert('table1', ['field1', 'field2'], [[1,'one'],[3,'three']]);
+			let res;
+
+			res = await conn.insert('table1', ['field1', 'field2'], [[1,'one'],[3,'three']]);
 			res = await conn.select('table1', ['field1','field2']);
 			expect(res).to.have.length(2);
 			expect(res).to.containSubset([{field1: 1, field2: 'one'}, {field1: 3, field2: 'three'}]);
@@ -196,7 +202,7 @@ describe('# Connection', () => {
 		});
 	});
 
-	describe.only('#delete', () => {
+	describe('#delete', () => {
 		let conn;
 		
 		beforeEach(async () => {
@@ -217,7 +223,6 @@ describe('# Connection', () => {
 			let res;
 
 			res = await conn.delete('table1', ['OR', ['field1', '=', 1], ['field2', '=', 'two']]);
-			
 			res = await conn.select('table1', ['field1']);
 			expect(res).to.have.length(2);
 			expect(res).to.containSubset([{field1: 3}, {field1: 4}]);
