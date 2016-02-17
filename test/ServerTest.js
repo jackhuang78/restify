@@ -15,6 +15,7 @@ let config = {
 	password: '',
 	database: 'restify'
 };
+let host = `http://localhost:${PORT}`;
 
 async function resetDb() {
 	return new Promise((res, rej) => {
@@ -48,67 +49,28 @@ describe('Server.js', () => {
 		});	
 	});
 
-	describe('#sync()', () => {
-		let server;
-		before(async () => {
-			server = new Server(config);
-			await server.start(PORT);
-		});
-		after(async () => {
-			await server.stop();
-		});
-
-		it('should sync table names', async () => {
-			let res;
-
-			res = await server.sync();
-			res = server.schema();
-
-			expect(res).to.have.property('User');
-			expect(res.User).to.have.property('id');
-			expect(res.User.id).to.containSubset({type: 'int', primary: true, autoInc: true});
-			expect(res.User.username).to.containSubset({type: 'varchar', size: 20, nullable: false, unique: true});
-			expect(res.User.plan_id).to.containSubset({type: 'int', foreign: true});
-
-			expect(res).to.have.property('Plan');
-			expect(res.Plan).to.have.property('id');
-			expect(res.Plan.id).to.containSubset({type: 'int', primary: true, autoInc: true});
-			expect(res.Plan.name).to.containSubset({type: 'varchar', size: 20, nullable: false, unique: true});
-			expect(res.Plan.monthly_fee).to.containSubset({type: 'decimal', size: 5, scale: 2});
-
-			expect(res).to.have.property('Repository');
-			expect(res.Repository).to.have.property('id');
-			expect(res.Repository.id).to.containSubset({type: 'int', primary: true, autoInc: true});
-			expect(res.Repository.name).to.containSubset({type: 'varchar', size: 20, nullable: false, unique: true});
-			expect(res.Repository.description).to.containSubset({type: 'varchar', size: 100});
-			expect(res.Repository.public).to.containSubset({type: 'tinyint'});			
-			expect(res.Repository.created).to.containSubset({type: 'date', nullable: false});			
-			expect(res.Repository.owner_id).to.containSubset({type: 'int', foreign: true});
-
-			expect(res).to.have.property('Contribution');
-			expect(res.Contribution.user_id).to.containSubset({type: 'int', foreign: true});
-			expect(res.Contribution.repo_id).to.containSubset({type: 'int', foreign: true});
-			expect(res.Contribution.role).to.containSubset({type: 'varchar', size: 20, nullable: false});
-			
-
-		});
-	});
-
 	describe('#HTTP', () => {
 		let server = new Server(config);
-		beforeEach(async () => {
+		before(async () => {
 			await resetDb();
 			await server.start(PORT);
 		});
-		afterEach(async () => {
+		after(async () => {
 			await server.stop(PORT);
 		});
 
 		describe('#GET /', () => {
 			it('should get the server status', async () => {
-				let response = await req({method: 'GET', url: 'http://localhost:9999', json: true});
+				let response = await req({method: 'GET', url: `${host}/`, json: true});
 				expect(response.statusCode).be.equal(200);
 				expect(response.body).to.have.property('status', 'ok');
+			});
+		});
+		describe('#GET /_schema', () => {
+			it('should get the schema', async () => {
+				let response = await req({method: 'GET', url: `${host}/_schema`, json: true});
+				expect(response.statusCode).be.equal(200);
+				expect(response.body).to.contain.all.keys(['User', 'Repository', 'Contribution', 'Plan']);
 			});
 		});
 	});

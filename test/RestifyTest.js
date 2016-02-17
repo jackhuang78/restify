@@ -17,6 +17,9 @@ let config = {
 	database: 'restify'
 };
 
+let debugOn = () => logger.setConsoleLevel('debug');
+let debugOff = () => logger.setConsoleLevel('info');
+
 async function resetDb() {
 	return new Promise((res, rej) => {
 		let sql = fs.readFileSync('./test/setup.sql').toString();
@@ -129,6 +132,34 @@ describe('#Restify', () => {
 			expect(schema.User.user_of_Contribution).to.containSubset({referencedTable: 'Contribution', referencedColumn: 'user_id'});
 			expect(schema.Repository.repo_of_Contribution).to.containSubset({referencedTable: 'Contribution', referencedColumn: 'repo_id'});
 		});
-	
 	});
+
+
+	describe('#CRUD', () => {
+		let restify;
+		debugOn();
+
+		describe('#post()', () => {
+			beforeEach(async () => {
+				await resetDb();
+				restify = new Restify(config);
+				await restify.sync();
+			});
+
+			it.only('should insert one row', async () => {
+				let res = await restify.post('User', [{username: 'jhuang78'}]);
+				expect(res).to.be.an.array.that.has.length(1);
+				expect(res[0].id).to.be.an.int;
+			});
+
+			it('should insert some rows', async () => {
+				let res = await restify.post('User', [{username: 'jhuang78'},{username: 'jack781217'}]);
+				expect(res).to.have.length(2);
+				expect(res[0]).to.be.an.int;
+				expect(res[1]).to.be.an.int;
+			});
+		});
+	});
+	
+	
 });

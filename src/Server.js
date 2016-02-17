@@ -36,6 +36,13 @@ class Server {
 		this.app.get('/_schema', p(async (req, res) => {
 			return res.json(restify.schema());
 		}));
+
+		this.app.get('/:table', p(async (req, res) => {
+			
+
+			
+			return res.send('OK');
+		}));
 	}
 
 	async start(port) {

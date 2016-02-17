@@ -2,7 +2,7 @@ import gulp from 'gulp';
 import mocha from 'gulp-mocha';
 import babel from 'gulp-babel';
 import eslint from 'gulp-eslint';
-import jsdoc from 'gulp-jsdoc';
+//import jsdoc from 'gulp-jsdoc';
 import del from 'del';
 import polyfill from 'babel-polyfill';
 import {argv} from 'yargs';
@@ -48,8 +48,8 @@ gulp.task('build', ['clean'], () => {
     .pipe(gulp.dest('build'));
 });
 
-gulp.task('doc', ['build'], () => {
-	return gulp.src('build/**/*.js')
-		.pipe(jsdoc('doc'));
-});
+// gulp.task('doc', ['build'], () => {
+// 	return gulp.src('build/**/*.js')
+// 		.pipe(jsdoc('doc'));
+// });
 
