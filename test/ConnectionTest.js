@@ -46,6 +46,7 @@ describe('# Connection', () => {
 	describe.only('#select()', () => {
 		let conn;
 		beforeEach(async () => {
+			logger.setConsoleLevel('debug');
 			await resetDb();
 			await execSql([
 				`USE ${dbConfig.database}`,
@@ -97,7 +98,7 @@ describe('# Connection', () => {
 		it('should read columns from a table with nested conditions', async () => {
 			let res;
 
-			res = await conn.select('table1', ['field1'], ['OR', ['field1', '=', 1], ['AND', ['field1', '!=', 2]]['field1', '!=', 3]]);
+			res = await conn.select('table1', ['field1'], ['OR', ['field1', '=', 1], ['AND', ['field1', '!=', 2], ['field1', '!=', 3]]]);
 			expect(res).to.have.length(2);
 			expect(res).to.containSubset([{field1: 1}, {field1: 4}]);
 

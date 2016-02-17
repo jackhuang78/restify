@@ -53,17 +53,17 @@ class Connection {
 		expect(where).to.be.an.array;
 		let operator = where[0];
 		if(operator === 'AND' || operator === 'OR') {
-			return where.slice(1).map(w => this._parseWhere(w)).join(operator);
+			return '(' + where.slice(1).map(w => this._parseWhere(w)).join(`) ${operator} (`) + ')';
 		} else {
 			expect(where).to.have.length(3);
-			return `(${mysql.escapeId(where[0])} ${where[1]} ${mysql.escape(where[2])})`;
+			return `${mysql.escapeId(where[0])} ${where[1]} ${mysql.escape(where[2])}`;
 		}
 	}
 
 	async select(table, columns, where) {
 		let stmt = (where == null || where === '' || where.length === 0 || where === {}) 
-				? `SELECT ${mysql.escapeId(columns)} FROM ${table};`
-				: `SELECT ${mysql.escapeId(columns)} FROM ${table} WHERE ${this._parseWhere(where)};`;
+				? `SELECT ${mysql.escapeId(columns)} FROM ${mysql.escapeId(table)};`
+				: `SELECT ${mysql.escapeId(columns)} FROM ${mysql.escapeId(table)} WHERE ${this._parseWhere(where)};`;
 		let res = await this.exec(stmt);
 		return res;
 	}
