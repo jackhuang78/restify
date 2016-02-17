@@ -69,10 +69,10 @@ class Connection {
 	}
 
 	async insert(table, columns, values) {
-		let stmt = `INSERT INTO ${mysql.escapeId(p.table)}(${mysql.escapeId(p.columns)})` 
-				+ ` VALUES ${mysql.escape(p.values)};`;
+		let stmt = `INSERT INTO ${mysql.escapeId(table)}(${mysql.escapeId(columns)})` 
+				+ ` VALUES ${mysql.escape(values)};`;
 		let res = await this.exec(stmt);
-		return res;
+		return res.insertId;
 	}
 
 }

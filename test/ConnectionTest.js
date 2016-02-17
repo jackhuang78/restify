@@ -102,9 +102,68 @@ describe('# Connection', () => {
 			expect(res).to.containSubset([{field1: 1}, {field1: 4}]);
 
 		});
-
 	});
 
+	describe.only('#insert', () => {
+		let conn;
+
+		beforeEach(async () => {
+			logger.debugOn();
+			await resetDb();
+			await execSql([
+				`USE ${dbConfig.database}`,
+				`CREATE TABLE table1(id INT NOT NULL AUTO_INCREMENT, PRIMARY KEY(id), field1 INT, field2 VARCHAR(10))`
+			]);
+			conn = connect();
+		});
+
+		afterEach(async () => {
+			conn.end();
+		});
+
+		it('should insert a row', async () => {
+			let res = await conn.insert('table1', ['field1'], [[1]]);
+			res = await conn.select('table1', ['field1']);
+			expect(res).to.have.length(1);
+			expect(res).to.containSubset([{field1: 1}]);
+		});
+
+		it('should insert multiple rows', async () => {
+			let res = await conn.insert('table1', ['field1'], [[1],[3]]);
+			res = await conn.select('table1', ['field1']);
+			expect(res).to.have.length(2);
+			expect(res).to.containSubset([{field1: 1}, {field1: 3}]);
+		});
+
+		it('should insert multiple rows with multiple columns', async () => {
+			let res = await conn.insert('table1', ['field1', 'field2'], [[1,'one'],[3,'three']]);
+			res = await conn.select('table1', ['field1','field2']);
+			expect(res).to.have.length(2);
+			expect(res).to.containSubset([{field1: 1, field2: 'one'}, {field1: 3, field2: 'three'}]);
+		});
+
+		it('should insert a row and return the generated id', async () => {
+			let id1 = await conn.insert('table1', ['field1'], [[3]]);
+			expect(id1).to.be.an.int;
+
+			let id2 = await conn.insert('table1', ['field1'], [[4]]);
+			expect(id2).to.be.an.int;
+
+			let res = await conn.select('table1', ['field1'], ['id', '=', id1]);
+			expect(res).to.have.length(1);
+			expect(res).to.containSubset([{field1: 3}]);
+
+			res = await conn.select('table1', ['field1'], ['id', '=', id2]);
+			expect(res).to.have.length(1);
+			expect(res).to.containSubset([{field1: 4}]);
+
+
+
+
+		});
+
+
+	});
 	
 	
 });
