@@ -1,6 +1,6 @@
 import mysql from 'mysql';
 import logger from './Logger';
-import chai, {expect} from 'chai';
+import {expect} from 'chai';
 
 class Connection {
 	/**

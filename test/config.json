@@ -2,5 +2,5 @@
 	"host": "localhost",
 	"user": "root",
 	"password": "",
-	"database": "restify_test"
+	"database": "world"
 }

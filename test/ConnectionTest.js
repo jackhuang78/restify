@@ -7,7 +7,7 @@ import fs from 'fs';
 import util from 'util';
 
 
-import {execCmd, execSql} from './exec';
+import {execCmd, execSql, execSqlFile} from './exec';
 import dbConfig from './config.json';
 import Connection from '../src/Connection';
 

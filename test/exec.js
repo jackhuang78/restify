@@ -1,4 +1,5 @@
 import {exec} from 'child_process';
+import fs from 'fs';
 import dbConfig from './config.json';
 
 let execCmd = async (cmd) => {
@@ -14,9 +15,14 @@ let execCmd = async (cmd) => {
 };
 
 let execSql = async (sql) => {
-	if(!sql instanceof Array)
-		sql = [sql];
-	return await execCmd(`mysql -u ${dbConfig.user} -e "${sql.join(';')}"`);
+	if(!(sql instanceof Array))
+		return await execCmd(`mysql -v -u ${dbConfig.user} -e "${sql}"`);
+	else
+		return await execCmd(`mysql -v -u ${dbConfig.user} -e "${sql.join(';')}"`); 
 };
 
-export {execCmd, execSql};
+let execSqlFile = async (fn) => {
+	return await execCmd(`mysql -u ${dbConfig.user} < ${fn}`);
+};
+
+export {execCmd, execSql, execSqlFile};
