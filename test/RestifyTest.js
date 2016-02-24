@@ -101,7 +101,6 @@ describe('#Restify', () => {
 					referenced: true, hasMany: true, referencedByTable: 'film', referencedByColumn: 'original_language_id'
 				});
 
-
 				expect(schema.store.manager_staff_id).to.containSubset({
 					foreign: true, unique: true, referencedTable: 'staff', referencedColumn: 'staff_id'
 				});
@@ -110,40 +109,64 @@ describe('#Restify', () => {
 				});
 
 			});
-
-			
-
-
 		});
 	});
 
+	describe('#CRUD', () => {
+		let restify;
+		before(async () => {
+			await resetDb();
+			restify = new Restify(dbConfig);
+			await restify.sync();
+			logger.debugOn();
+		});
+
+		describe.only('#get()', () => {
+			it('should read all records', async () => {
+				let res = await restify.get('film', {film_id: undefined, title: undefined});
+				expect(res).to.have.length(1000);
+				for(let item of res) {
+					expect(item).to.have.keys(['film_id', 'title']);
+				}
+			});
+			it('should read records', async () => {
+				let res;
+
+				res = await restify.get('film', {film_id: 2, title: undefined});
+				expect(res).to.have.length(1);
+				expect(res).to.containSubset([{film_id: 2, title: 'ACE GOLDFINGER'}]);
+
+				res = await restify.get('film', {film_id: undefined, title: 'ACE GOLDFINGER'});
+				expect(res).to.have.length(1);
+				expect(res).to.containSubset([{film_id: 2, title: 'ACE GOLDFINGER'}]);
+
+				res = await restify.get('film', {film_id: ['<', 10], title: undefined});
+				expect(res).to.have.length(9);
+				for(let item of res) {
+					expect(item).to.have.property('film_id').that.is.below(10);
+				}
+
+				res = await restify.get('film', {film_id: undefined, title: ['like', '%ACE%']});
+				expect(res).to.have.length(15);
+				for(let item of res) {
+					expect(item).to.have.property('title').that.match(/.*ACE.*/);
+				}
+
+				res = await restify.get('film', {film_id: ['<', 100], title: ['like', '%ACE%']});
+				expect(res).to.have.length(2);
+				for(let item of res) {
+					expect(item).to.have.property('film_id').that.is.below(100);
+					expect(item).to.have.property('title').that.match(/.*ACE.*/);	
+				}
+			});
+
+			it('should read nested records', async () => {
+
+			});
+		});
 
 
-	// describe('#CRUD', () => {
-	// 	let restify;
-	// 	debugOn();
-
-	// 	describe('#post()', () => {
-	// 		beforeEach(async () => {
-	// 			await resetDb();
-	// 			restify = new Restify(config);
-	// 			await restify.sync();
-	// 		});
-
-	// 		it.only('should insert one row', async () => {
-	// 			let res = await restify.post('User', [{username: 'jhuang78'}]);
-	// 			expect(res).to.be.an.array.that.has.length(1);
-	// 			expect(res[0].id).to.be.an.int;
-	// 		});
-
-	// 		it('should insert some rows', async () => {
-	// 			let res = await restify.post('User', [{username: 'jhuang78'},{username: 'jack781217'}]);
-	// 			expect(res).to.have.length(2);
-	// 			expect(res[0]).to.be.an.int;
-	// 			expect(res[1]).to.be.an.int;
-	// 		});
-	// 	});
-	// });
+	});
 	
 	
 });

@@ -89,6 +89,39 @@ class Restify {
 	schema() {
 		return this._schema;
 	}
+
+	_buildConditions(query) {
+		let cond = Object.keys(query)
+		.filter((column) => (query[column] !== undefined))
+		.map((column) => {
+			if(!(query[column] instanceof Array))
+				return [column, '=', query[column]];
+			else
+				return [column, query[column][0], query[column][1]];
+		});
+
+		if(cond.length === 0)
+			return null;
+		else if(cond.length === 1)
+			return cond[0];
+		else {
+			cond.unshift('AND');
+			return cond;
+		}
+
+	}
+
+	async get(tableName, query) {
+		let res;
+		let conn = this._connect();
+
+		let columns = Object.keys(query);
+		res = conn.select(tableName, columns, this._buildConditions(query));
+
+		conn.end();
+
+		return res;
+	}
 }
 
 export default Restify;
