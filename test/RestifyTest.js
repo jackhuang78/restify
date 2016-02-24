@@ -15,7 +15,8 @@ chai.use(chaiDatetime);
 
 
 let resetDb = async () => {
-	return await execSqlFile('./test/world.sql');
+	await execSqlFile('./test/sakila-db/sakila-schema.sql');
+	await execSqlFile('./test/sakila-db/sakila-data.sql');
 };
 
 
@@ -45,15 +46,43 @@ describe('#Restify', () => {
 
 			it('should sync table names correctly', async () => {
 				let schema = restify.schema();
-				expect(schema).to.have.keys(['City', 'Country', 'CountryLanguage']);
+				expect(schema).to.have.keys([
+						'actor','actor_info','address','category','city','country','customer',
+						'customer_list','film','film_actor','film_category','film_list','film_text',
+						'inventory','language','nicer_but_slower_film_list','payment','rental',
+						'sales_by_film_category','sales_by_store','staff','staff_list','store']);
 			});
 
 			it('should sync column names correctly', async () => {
 				let schema = restify.schema();
-				expect(schema.City).to.contain.keys(['ID', 'Name', 'CountryCode', 'District', 'Population']);
-				expect(schema.Country).to.contain.keys(['Code', 'Name', 'Continent', 'Region', 'SurfaceArea', 'IndepYear', 'Population', 'LifeExpectancy', 'GNP', 'GNPOld', 'LocalName', 'GovernmentForm', 'HeadOfState', 'Capital', 'Code2']);
-				expect(schema.CountryLanguage).contain.keys(['CountryCode', 'Language', 'IsOfficial', 'Percentage']);
+				expect(schema.actor).to.contain.keys(['actor_id', 'first_name', 'last_name', 'last_update']);
 			});
+
+			it('should sync column type and size correctly', async () => {
+				let schema = restify.schema();
+
+				expect(schema.film.language_id).to.containSubset({type: 'tinyint'});
+				expect(schema.film.film_id).to.containSubset({type: 'smallint'});
+				expect(schema.inventory.inventory_id).to.containSubset({type: 'mediumint'});
+				expect(schema.rental.rental_id).to.containSubset({type: 'int'});
+				expect(schema.customer.active).to.containSubset({type: 'tinyint'});
+
+				expect(schema.film.rental_rate).to.containSubset({type: 'decimal', size: 4});
+
+				expect(schema.film.rating).to.containSubset({type: 'enum'});				
+				expect(schema.film.special_features).to.containSubset({type: 'set'});
+
+				expect(schema.film.title).to.containSubset({type: 'varchar', size: 255});
+				expect(schema.film.description).to.containSubset({type: 'text'});
+
+				expect(schema.customer.create_date).to.containSubset({type: 'datetime'});
+				expect(schema.film.last_update).to.containSubset({type: 'timestamp'});
+				expect(schema.film.release_year).to.containSubset({type: 'year'});
+
+				expect(schema.staff.picture).to.containSubset({type: 'blob'});
+			});
+
+
 
 		});
 	});
@@ -65,36 +94,7 @@ describe('#Restify', () => {
 	// 		restify = new Restify(dbConfig);
 	// 		await restify.sync();
 	// 	});
-	// 	it('should sync table names correctly', async () => {
-	// 		let schema = restify.schema();
-	// 		expect(schema).to.contain.all.keys(['User', 'Repository', 'Contribution', 'Plan']);
-	// 	});
-	// 	it('should sync column names correctly', async () => {
-	// 		let schema = restify.schema();
-	// 		expect(schema.User).to.contain.all.keys(['id', 'username', 'plan_id']);
-	// 		expect(schema.Plan).to.contain.all.keys(['id', 'name', 'monthly_fee']);
-	// 		expect(schema.Repository).to.contain.all.keys(['id', 'name', 'description', 'public', 'created', 'owner_id']);
-	// 		expect(schema.Contribution).to.contain.all.keys(['repo_id', 'user_id', 'role']);
-	// 	});
-	// 	it('should sync column type and size correctly', async () => {
-	// 		let schema = restify.schema();
 
-	// 		expect(schema.User.id).to.containSubset({type: 'int'});
-	// 		expect(schema.User.username).to.containSubset({type: 'varchar', size: 20});
-	// 		expect(schema.User.plan_id).to.containSubset({type: 'int'});
-	// 		expect(schema.Plan.id).to.containSubset({type: 'int'});
-	// 		expect(schema.Plan.name).to.containSubset({type: 'varchar', size: 20});
-	// 		expect(schema.Plan.monthly_fee).to.containSubset({type: 'decimal', size: 5, scale: 2});
-	// 		expect(schema.Repository.id).to.containSubset({type: 'int'});
-	// 		expect(schema.Repository.name).to.containSubset({type: 'varchar', size: 20});
-	// 		expect(schema.Repository.description).to.containSubset({type: 'varchar', size: 100});
-	// 		expect(schema.Repository.public).to.containSubset({type: 'tinyint'});			
-	// 		expect(schema.Repository.created).to.containSubset({type: 'date'});			
-	// 		expect(schema.Repository.owner_id).to.containSubset({type: 'int'});
-	// 		expect(schema.Contribution.user_id).to.containSubset({type: 'int'});
-	// 		expect(schema.Contribution.repo_id).to.containSubset({type: 'int'});
-	// 		expect(schema.Contribution.role).to.containSubset({type: 'varchar', size: 20});
-	// 	});
 
 	// 	it('should sync column key property correctly', async () => {
 	// 		let schema = restify.schema();
