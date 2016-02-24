@@ -72,8 +72,10 @@ class Restify {
 
  					// create back reference
  					schema[column.referencedTable][`${column.alterName}_of_${tableName}`] = {
- 						referencedTable: tableName,
- 						referencedColumn: columnName
+ 						referenced: true,
+ 						referencedByTable: tableName,
+ 						referencedByColumn: columnName,
+ 						hasMany: !column.unique
  					};
  				}
  			}

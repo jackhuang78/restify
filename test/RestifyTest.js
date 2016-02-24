@@ -82,62 +82,41 @@ describe('#Restify', () => {
 				expect(schema.staff.picture).to.containSubset({type: 'blob'});
 			});
 
+			it('should sync references property correctly', async () => {
+				let schema = restify.schema();
+
+				expect(schema.film.film_id).to.containSubset({primary: true});
+
+				expect(schema.film.language_id).to.containSubset({
+					foreign: true, referencedTable: 'language', referencedColumn: 'language_id'
+				});
+				expect(schema.language.language_of_film).to.containSubset({
+					referenced: true, hasMany: true, referencedByTable: 'film', referencedByColumn: 'language_id'
+				});
+
+				expect(schema.film.original_language_id).to.containSubset({
+					foreign: true, referencedTable: 'language', referencedColumn: 'language_id'
+				});
+				expect(schema.language.original_language_of_film).to.containSubset({
+					referenced: true, hasMany: true, referencedByTable: 'film', referencedByColumn: 'original_language_id'
+				});
+
+
+				expect(schema.store.manager_staff_id).to.containSubset({
+					foreign: true, unique: true, referencedTable: 'staff', referencedColumn: 'staff_id'
+				});
+				expect(schema.staff.manager_staff_of_store).to.containSubset({
+					referenced: true, hasMany: false, referencedByTable: 'store', referencedByColumn: 'manager_staff_id'
+				});
+
+			});
+
+			
 
 
 		});
 	});
 
-	// describe('#schema()', () => {
-	// 	let restify;
-	// 	beforeEach(async () => {
-	// 		await resetDb();
-	// 		restify = new Restify(dbConfig);
-	// 		await restify.sync();
-	// 	});
-
-
-	// 	it('should sync column key property correctly', async () => {
-	// 		let schema = restify.schema();
-
-	// 		expect(schema.User.id).to.containSubset({primary: true});
-	// 		expect(schema.User.username).to.containSubset({unique: true});
-	// 		expect(schema.User.plan_id).to.containSubset({foreign: true});
-	// 		expect(schema.Plan.id).to.containSubset({primary: true});
-	// 		expect(schema.Plan.name).to.containSubset({unique: true});
-	// 		expect(schema.Repository.id).to.containSubset({primary: true});
-	// 		expect(schema.Repository.name).to.containSubset({unique: true});
-	// 		expect(schema.Repository.owner_id).to.containSubset({foreign: true});
-	// 		expect(schema.Contribution.user_id).to.containSubset({primary: true});
-	// 		expect(schema.Contribution.repo_id).to.containSubset({primary: true});		
-	// 	});
-
-	// 	it('should sync column reference correctly', async () => {
-	// 		let schema = restify.schema();
-
-	// 		expect(schema.User.plan_id).to.containSubset({referencedTable: 'Plan', referencedColumn: 'id'});
-	// 		expect(schema.Repository.owner_id).to.containSubset({referencedTable: 'User', referencedColumn: 'id'});
-	// 		expect(schema.Contribution.user_id).to.containSubset({referencedTable: 'User', referencedColumn: 'id'});
-	// 		expect(schema.Contribution.repo_id).to.containSubset({referencedTable: 'Repository', referencedColumn: 'id'});
-	// 	});
-
-	// 	it('should sync column reference alias correctly', async () => {
-	// 		let schema = restify.schema();
-
-	// 		expect(schema.User.plan).to.containSubset({alias: 'plan_id'});
-	// 		expect(schema.Repository.owner).to.containSubset({alias: 'owner_id'});
-	// 		expect(schema.Contribution.user).to.containSubset({alias: 'user_id'});
-	// 		expect(schema.Contribution.repo).to.containSubset({alias: 'repo_id'});
-	// 	});
-
-	// 	it('should sync column back reference correctly', async () => {
-	// 		let schema = restify.schema();
-
-	// 		expect(schema.Plan.plan_of_User).to.containSubset({referencedTable: 'User', referencedColumn: 'plan_id'});
-	// 		expect(schema.User.owner_of_Repository).to.containSubset({referencedTable: 'Repository', referencedColumn: 'owner_id'});
-	// 		expect(schema.User.user_of_Contribution).to.containSubset({referencedTable: 'Contribution', referencedColumn: 'user_id'});
-	// 		expect(schema.Repository.repo_of_Contribution).to.containSubset({referencedTable: 'Contribution', referencedColumn: 'repo_id'});
-	// 	});
-	// });
 
 
 	// describe('#CRUD', () => {
