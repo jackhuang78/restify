@@ -75,6 +75,7 @@ class Restify {
  					// create back reference
  					schema[column.referencedTable][`${column.alterName}_of_${tableName}`] = {
  						referenced: true,
+ 						referencedToColumn: column.referencedColumn,
  						referencedByTable: tableName,
  						referencedByColumn: columnName,
  						hasMany: !column.unique
@@ -155,7 +156,7 @@ class Restify {
 				columns.push(table[column].alias);
 			} else if(table[column].referenced) {
 				backReferences.push(column);
-				columns.push(table[column].referencedByColumn);
+				columns.push(table[column].referencedToColumn);
 			} else {
 				columns.push(column);
 			}
@@ -180,7 +181,7 @@ class Restify {
 			for(let referenceName of backReferences) {
 				let reference = table[referenceName];
 				let subquery = query[referenceName] == null ? {} : query[referenceName];
-				subquery[reference.referencedByColumn] = item[reference.referencedByColumn];
+				subquery[reference.referencedByColumn] = item[reference.referencedToColumn];
 				res = await this.get(reference.referencedByTable, subquery);
 				item[referenceName] = reference.hasMany ? res
 						: (res.length > 0) ? res[0] : null;

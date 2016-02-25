@@ -9,6 +9,7 @@ import fs from 'fs';
 import deConfig from './config.json';
 import {execCmd, execSql, execSqlFile, toFile} from './exec';
 import dbConfig from './config.json';
+import util from 'util';
 
 chai.use(chaiSubset);
 chai.use(chaiDatetime);
@@ -179,9 +180,15 @@ describe('#Restify', () => {
 				let res;
 
 				res = await restify.get('customer', {customer_id: 1, customer_of_payment: {amount: undefined}});
-				console.log(res);
 				expect(res).to.have.length(1);
 				expect(res[0]).to.have.property('customer_of_payment').that.has.length(32);
+				for(let item of res[0]['customer_of_payment'])
+					expect(item).to.containSubset({customer_id: 1});
+
+				res = await restify.get('staff', {staff_id: 1, manager_staff_of_store: {store_id: undefined}});
+				expect(res).to.have.length(1);
+				expect(res[0]).to.have.property('manager_staff_of_store').that.containSubset({store_id: 1});
+				
 			});
 		});
 
