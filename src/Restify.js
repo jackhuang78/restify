@@ -119,7 +119,9 @@ class Restify {
 			} else if(query[column] instanceof Object) {
 
 			} else {
-				return [column, '=', query[column]];
+				return query[column] === null 
+						? [column, 'is', null] 
+						: [column, '=', query[column]];
 			}	
 		});
 
@@ -145,12 +147,15 @@ class Restify {
 
 		let columns = [];
 		let references = [];
+		let backReferences = [];
 
 		for(let column of Object.keys(query)) {
-			console.log('column', column);
 			if(table[column].alias != null) {
 				references.push(table[column].alias);
 				columns.push(table[column].alias);
+			} else if(table[column].referenced) {
+				backReferences.push(column);
+				columns.push(table[column].referencedByColumn);
 			} else {
 				columns.push(column);
 			}
@@ -170,6 +175,15 @@ class Restify {
 				res = await this.get(reference.referencedTable, subquery);
 				item[reference.alterName] = res.length > 0 ? res[0] : null;
 				delete item[referenceName];
+			}
+
+			for(let referenceName of backReferences) {
+				let reference = table[referenceName];
+				let subquery = query[referenceName] == null ? {} : query[referenceName];
+				subquery[reference.referencedByColumn] = item[reference.referencedByColumn];
+				res = await this.get(reference.referencedByTable, subquery);
+				item[referenceName] = reference.hasMany ? res
+						: (res.length > 0) ? res[0] : null;
 			}
 		}
 

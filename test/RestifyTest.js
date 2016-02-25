@@ -173,7 +173,15 @@ describe('#Restify', () => {
 				expect(res).to.have.length(1);
 				expect(res).to.containSubset([{film_id: 2, language: {name: 'English'}, original_language: null}]);
 				
+			});
 
+			it('should read back reference', async () => {
+				let res;
+
+				res = await restify.get('customer', {customer_id: 1, customer_of_payment: {amount: undefined}});
+				console.log(res);
+				expect(res).to.have.length(1);
+				expect(res[0]).to.have.property('customer_of_payment').that.has.length(32);
 			});
 		});
 
