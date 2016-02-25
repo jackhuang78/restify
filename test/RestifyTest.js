@@ -7,7 +7,7 @@ import logger from '../src/Logger';
 import mysql from 'mysql';
 import fs from 'fs';
 import deConfig from './config.json';
-import {execCmd, execSql, execSqlFile} from './exec';
+import {execCmd, execSql, execSqlFile, toFile} from './exec';
 import dbConfig from './config.json';
 
 chai.use(chaiSubset);
@@ -119,13 +119,15 @@ describe('#Restify', () => {
 			restify = new Restify(dbConfig);
 			await restify.sync();
 			logger.debugOn();
+
+			toFile('schema.json', JSON.stringify(restify.schema(), null, 4));
 		});
 
 		describe.only('#get()', () => {
 			it('should read all records', async () => {
 				let res = await restify.get('film', {film_id: undefined, title: undefined});
 				expect(res).to.have.length(1000);
-				for(let item of res) {
+				for(let item of res.slice(0,10)) {
 					expect(item).to.have.keys(['film_id', 'title']);
 				}
 			});
@@ -161,6 +163,16 @@ describe('#Restify', () => {
 			});
 
 			it('should read nested records', async () => {
+				let res;
+
+				res = await restify.get('film', {film_id: 2, title: undefined, language:{name: undefined}});
+				expect(res).to.have.length(1);
+				expect(res).to.containSubset([{film_id: 2, title: 'ACE GOLDFINGER', language: {language_id: 1, name: 'English'}}]);
+
+				res = await restify.get('film', {film_id: 2, language: {name: undefined}, original_language: {name: undefined}});
+				expect(res).to.have.length(1);
+				expect(res).to.containSubset([{film_id: 2, language: {name: 'English'}, original_language: null}]);
+				
 
 			});
 		});

@@ -1,6 +1,8 @@
 import {expect} from 'chai';
+import util from 'util';
 import Connection from './Connection';
 import logger from './Logger';
+
 
 class Restify {
 	constructor(config) {
@@ -90,14 +92,35 @@ class Restify {
 		return this._schema;
 	}
 
+	_type(val) {
+		if(val === undefined)
+			return 'undefined';
+		else if(val === null)
+			return 'null';
+		else if(val instanceof Array)
+			return 'array';
+		else if(val instanceof Object)
+			return 'object';
+		else 
+			return typeof(val);
+
+
+	}
+
 	_buildConditions(query) {
 		let cond = Object.keys(query)
-		.filter((column) => (query[column] !== undefined))
+		.filter((column) => {
+			let type = this._type(query[column]);
+			return (type !== 'undefined') && (type !== 'object');
+		})	
 		.map((column) => {
-			if(!(query[column] instanceof Array))
-				return [column, '=', query[column]];
-			else
+			if(query[column] instanceof Array) {
 				return [column, query[column][0], query[column][1]];
+			} else if(query[column] instanceof Object) {
+
+			} else {
+				return [column, '=', query[column]];
+			}	
 		});
 
 		if(cond.length === 0)
@@ -112,15 +135,53 @@ class Restify {
 	}
 
 	async get(tableName, query) {
+		logger.debug(`GET ${tableName} ${util.inspect(query)}`);
 		let res;
 		let conn = this._connect();
+		let table = this._schema[tableName];
 
-		let columns = Object.keys(query);
-		res = conn.select(tableName, columns, this._buildConditions(query));
+		if(table == null)
+			throw new Error(`Table not found: ${tableName}`);
+
+		let columns = [];
+		let references = [];
+
+		for(let column of Object.keys(query)) {
+			console.log('column', column);
+			if(table[column].alias != null) {
+				references.push(table[column].alias);
+				columns.push(table[column].alias);
+			} else {
+				columns.push(column);
+			}
+		}
+
+		res = await conn.select(tableName, columns, this._buildConditions(query));
+
+		let items = res;
+
+		for(let item of items) {
+			for(let referenceName of references) {
+				let reference = table[referenceName];
+				//console.log(reference);
+				let subquery = query[reference.alterName] == null ? {} : query[reference.alterName];
+				//console.log(subquery);
+				subquery[reference.referencedColumn] = item[referenceName];
+				res = await this.get(reference.referencedTable, subquery);
+				item[reference.alterName] = res.length > 0 ? res[0] : null;
+				delete item[referenceName];
+			}
+		}
+
+
+		
+
+
+
 
 		conn.end();
 
-		return res;
+		return items;
 	}
 }
 

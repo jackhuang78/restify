@@ -25,4 +25,8 @@ let execSqlFile = async (fn) => {
 	return await execCmd(`mysql -u ${dbConfig.user} < ${fn}`);
 };
 
-export {execCmd, execSql, execSqlFile};
+let toFile = (fn, data) => {
+	fs.writeFileSync(fn, data);
+};
+
+export {execCmd, execSql, execSqlFile, toFile};
