@@ -1,8 +1,10 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import chai, {expect} from 'chai';
-import logger from './Logger';
+import Logger from './Logger';
 import Restify from './Restify';
+
+let logger = Logger.get('Server');
 
 let p = fn => (...args) => fn(...args).catch(args[2]);
 

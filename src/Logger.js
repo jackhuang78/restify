@@ -1,34 +1,34 @@
 import winston from 'winston';
 
-let logger = new winston.Logger({
-	colors: {
-		debug: 'cyan',
-		info: 'green',
-		warn: 'yellow',
-		error: 'red'
-	},
-	transports: [
-		new winston.transports.Console({
-			level: 'info',
-			colorize: true
-		}),
-		new winston.transports.File({
-			filename: 'restify.log',
-			level: 'debug'
-		})
-	]
-});
+class Logger {
+	static loggers;
 
-logger.setConsoleLevel = (level) => {
-	logger.transports.console.level = level;
-};
+	static _init() {
+		Logger.loggers = {};
+		Logger.loggers.default = new winston.Logger({
+			colors: {
+				debug: 'cyan',
+				info: 'green',
+				warn: 'yellow',
+				error: 'red'
+			},
+			transports: [new winston.transports.Console({
+				level: 'info',
+				colorize: true
+			}),	new winston.transports.File({
+				filename: 'restify.log',
+				level: 'debug'
+			})]
+		});				
+	}
 
-logger.debugOn = () => {
-	logger.setConsoleLevel('debug');
-};
+	static get(cls) {
+		return (Logger.loggers[cls] == null)
+				? Logger.loggers.default
+				: Logger.loggers[cls];
+	}
+}
 
-logger.debugOff = () => {
-	logger.setConsoleLevel('info');
-};
+Logger._init();
 
-export default logger;
+export default Logger;

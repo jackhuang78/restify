@@ -1,8 +1,9 @@
 import {expect} from 'chai';
 import util from 'util';
 import Connection from './Connection';
-import logger from './Logger';
+import Logger from './Logger';
 
+let logger = Logger.get('Restify');
 
 class Restify {
 	constructor(config) {
@@ -169,9 +170,7 @@ class Restify {
 		for(let item of items) {
 			for(let referenceName of references) {
 				let reference = table[referenceName];
-				//console.log(reference);
 				let subquery = query[reference.alterName] == null ? {} : query[reference.alterName];
-				//console.log(subquery);
 				subquery[reference.referencedColumn] = item[referenceName];
 				res = await this.get(reference.referencedTable, subquery);
 				item[reference.alterName] = res.length > 0 ? res[0] : null;

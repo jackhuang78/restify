@@ -1,6 +1,8 @@
 import mysql from 'mysql';
-import logger from './Logger';
+import Logger from './Logger';
 import {expect} from 'chai';
+
+let logger = Logger.get('Connection');
 
 class Connection {
 	/**

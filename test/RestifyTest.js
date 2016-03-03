@@ -3,7 +3,6 @@ import chai, {expect} from 'chai';
 import chaiSubset from 'chai-subset';
 import chaiDatetime from 'chai-datetime';
 import Restify from '../src/Restify';
-import logger from '../src/Logger';
 import mysql from 'mysql';
 import fs from 'fs';
 import deConfig from './config.json';
@@ -116,10 +115,13 @@ describe('#Restify', () => {
 	describe('#CRUD', () => {
 		let restify;
 		before(async () => {
+			console.log('a');
 			await resetDb();
+			console.log('b');
 			restify = new Restify(dbConfig);
+			console.log('c');
 			await restify.sync();
-			logger.debugOn();
+			console.log('d');
 
 			toFile('schema.json', JSON.stringify(restify.schema(), null, 4));
 		});
