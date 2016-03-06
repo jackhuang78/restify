@@ -115,15 +115,11 @@ describe('#Restify', () => {
 	describe('#CRUD', () => {
 		let restify;
 		before(async () => {
-			console.log('a');
 			await resetDb();
-			console.log('b');
 			restify = new Restify(dbConfig);
-			console.log('c');
 			await restify.sync();
-			console.log('d');
 
-			toFile('schema.json', JSON.stringify(restify.schema(), null, 4));
+			toFile('out/schema.json', JSON.stringify(restify.schema(), null, 4));
 		});
 
 		describe.only('#get()', () => {

@@ -1,6 +1,7 @@
 node_modules/
 build/
 doc/
+out/
 .DS_Store/
 *.log
 *.sublime-project
