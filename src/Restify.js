@@ -139,7 +139,7 @@ class Restify {
 	}
 
 	async get(tableName, query) {
-		logger.debug(`GET ${tableName} ${util.inspect(query)}`);
+		logger.debug(`Restify> GET ${tableName} ${util.inspect(query)}`);
 		let res;
 		let conn = this._connect();
 		let table = this._schema[tableName];

@@ -36,7 +36,7 @@ gulp.task('run', ['lint'], async () => {
 		host: 'localhost',
 		user: 'root',
 		password: '',
-		database: 'restify'
+		database: 'sakila'
 	});
 	await server.start(9999);
 });

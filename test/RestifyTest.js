@@ -5,7 +5,6 @@ import chaiDatetime from 'chai-datetime';
 import Restify from '../src/Restify';
 import mysql from 'mysql';
 import fs from 'fs';
-import deConfig from './config.json';
 import {execCmd, execSql, execSqlFile, toFile} from './exec';
 import dbConfig from './config.json';
 import util from 'util';

@@ -21,31 +21,93 @@ class Server {
 		this.app.use(bodyParser.urlencoded({extended:true}));
 		this.app.use(bodyParser.json());
 
+		// middleware
 		this.app.use(p(async (req, res, next) => {
 			logger.info(`SERVER> ${req.method} ${req.url}`);
 			return next();
 		}));
 		
+		// status
 		this.app.get('/', p(async (req, res) => {
 			return res.json({status: 'ok'});
 		}));
-		
-		this.app.post('/_sync', p(async (req, res) => {
-			await restify.sync();
-			return res.send('OK');
+
+		this.app.options('/', p(async (req, res) => {
+			return res.json({
+				tables: Object.keys(restify.schema())
+			});
 		}));
 
-		this.app.get('/_schema', p(async (req, res) => {
-			return res.json(restify.schema());
+		this.app.options('/:table', p(async (req, res) => {
+			return res.json({
+				fields: restify.schema()[req.params.table]
+			});
 		}));
+
+		
 
 		this.app.get('/:table', p(async (req, res) => {
+			let table = req.params.table;
+
+			//console.log('req', req);
+
+			// console.log('req.param.table', req.param.table);
+			// console.log('req.query', req.query);
+
+			let query = Server._parseQuery(req.query);
+
+			console.log('query', query);
+
+			let items = await restify.get(table, query);
+
+//		console.log('items', items);
 			
 
 			
-			return res.send('OK');
+			return res.json(items);
 		}));
 	}
+
+	static _parseQuery(query) {
+		let parsed = {};
+		for(let fields in query) {
+			let cur = parsed;
+			
+			let keys = fields.split('.');
+			let last = keys.pop();
+			for(let key of keys) {
+				if(cur[key] === undefined) {
+					cur[key] = {};
+				}
+				cur = cur[key];
+			}
+
+			if(typeof(query[fields]) === 'number') {
+				cur[last] = ['=', query[fields]];
+			} else if(query[fields] === '*') {
+				cur[last] = undefined;
+			} else if(query[fields] === 'NULL') {
+				cur[last] = null;
+			} else if(query[fields].startsWith('<=')) {
+				cur[last] = ['<=', query[fields].substring(2)];
+			} else if(query[fields].startsWith('<')) {
+				cur[last] = ['<', query[fields].substring(1)];
+			}	else if(query[fields].startsWith('>=')) {
+				cur[last] = ['>=', query[fields].substring(2)];
+			} else if(query[fields].startsWith('>')) {
+				cur[last] = ['>', query[fields].substring(1)];
+			} else if(query[fields].startsWith('!=')) {
+				cur[last] = ['!=', query[fields].substring(2)];
+			} else if(query[fields].startsWith('~')) {
+				cur[last] = ['LIKE', query[fields].substring(1)];
+			} else {
+				cur[last] = ['=', query[fields]];
+			}
+			
+
+		}
+		return parsed;
+	};
 
 	async start(port) {
 		logger.info(`SERVER> starting on port ${port}...`);
