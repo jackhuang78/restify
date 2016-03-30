@@ -10,7 +10,7 @@ import {execCmd, execSql, execSqlFile, toFile} from './exec';
 
 chai.use(chaiSubset);
 
-let PORT = 9999;
+let PORT = 8888;
 let host = `http://localhost:${PORT}`;
 
 let resetDb = async () => {
@@ -90,14 +90,14 @@ describe('Server.js', () => {
 				describe('conditions', () => {
 					it('should get data by =', async () => {
 						//let res = await req({method: 'GET', url: '/film', qs: {film_id: 1, title: null}, json: true});
-						let res = await req({method: 'GET', url: '/film?film_id=2&title=*', json: true});
+						let res = await req({method: 'GET', url: '/film?film_id=2&title', json: true});
 						expect(res.statusCode).to.equal(200);
 						expect(res.body).to.have.length(1);
 						expect(res.body).to.containSubset([{film_id: 2, title: 'ACE GOLDFINGER'}]);
 					});
 
 					it('should get data by <', async () => {
-						let res = await req({method: 'GET', url: '/film?film_id=<5&title=*', json: true});
+						let res = await req({method: 'GET', url: '/film?film_id=<5&title', json: true});
 						expect(res.statusCode).to.equal(200);
 						expect(res.body).to.have.length(4);
 						expect(res.body).to.containSubset([
@@ -109,7 +109,7 @@ describe('Server.js', () => {
 					});
 
 					it('should get data by <=', async () => {
-						let res = await req({method: 'GET', url: '/film?film_id=<=5&title=*', json: true});
+						let res = await req({method: 'GET', url: '/film?film_id=<=5&title', json: true});
 						expect(res.statusCode).to.equal(200);
 						expect(res.body).to.have.length(5);
 						expect(res.body).to.containSubset([
@@ -122,7 +122,7 @@ describe('Server.js', () => {
 					});
 
 					it('should get data by >', async () => {
-						let res = await req({method: 'GET', url: '/film?film_id=>996&title=*', json: true});
+						let res = await req({method: 'GET', url: '/film?film_id=>996&title', json: true});
 						expect(res.statusCode).to.equal(200);
 						expect(res.body).to.have.length(4);
 						expect(res.body).to.containSubset([
@@ -134,7 +134,7 @@ describe('Server.js', () => {
 					});
 
 					it('should get data by >=', async () => {
-						let res = await req({method: 'GET', url: '/film?film_id=>=996&title=*', json: true});
+						let res = await req({method: 'GET', url: '/film?film_id=>=996&title', json: true});
 						expect(res.statusCode).to.equal(200);
 						expect(res.body).to.have.length(5);
 						expect(res.body).to.containSubset([
@@ -147,20 +147,37 @@ describe('Server.js', () => {
 					});
 
 					it('should get data by !=', async () => {
-						let res = await req({method: 'GET', url: '/film?rating=!=G&title=*', json: true});
+						let res = await req({method: 'GET', url: '/film?rating=!=G&title', json: true});
 						expect(res.statusCode).to.equal(200);
 						expect(res.body).to.have.length(822);
 					});
 
-					it.only('should get data by ~', async () => {
+					it('should get data by ~', async () => {
 						let res = await req({method: 'GET', url: '/film?title=~%ACE%', json: true});
 						expect(res.statusCode).to.equal(200);
 						expect(res.body).to.have.length(15);
 					});
-
 				});
 				
+				describe('nesting', () => {
+					it('should get toOne relation', async () => {
+						let res = await req({method: 'GET', url: '/film?film_id=1&language.name', json: true});
+						expect(res.statusCode).to.equal(200);
+						expect(res.body).to.containSubset([
+							{film_id: 1, language: {name: 'English'}}
+						]);
+					});
+
+					it('should get toMany relation', async () => {
+						let res = await(req({method: 'GET', url: '/customer?customer_id=1&customer_of_rental.rental_id', json: true}));
+						expect(res.statusCode).to.equal(200);
+						expect(res.body[0]).to.have.length(32);
+					});
+
+				});
 			});
+
+
 		});
 
 		

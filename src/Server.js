@@ -68,8 +68,40 @@ class Server {
 		}));
 	}
 
+	static _parseCondition(cond) {
+		if(typeof(cond) === 'number') {
+			return ['=', cond];
+		} else if(cond === '') {
+			return undefined;
+		} else if(cond === 'NULL') {
+			return null;
+		} else if(cond.startsWith('<=')) {
+			return ['<=', cond.substring(2)];
+		} else if(cond.startsWith('<')) {
+			return ['<', cond.substring(1)];
+		}	else if(cond.startsWith('>=')) {
+			return ['>=', cond.substring(2)];
+		} else if(cond.startsWith('>')) {
+			return ['>', cond.substring(1)];
+		} else if(cond.startsWith('!=')) {
+			return ['!=', cond.substring(2)];
+		} else if(cond.startsWith('~')) {
+			return ['LIKE', cond.substring(1)];
+		} else {
+			return ['=', cond];
+		}
+	}
+
 	static _parseQuery(query) {
+//		console.log('query', query);
+
+		// let parts = query.split(',');
+
+
 		let parsed = {};
+
+
+
 		for(let fields in query) {
 			let cur = parsed;
 			
@@ -84,7 +116,7 @@ class Server {
 
 			if(typeof(query[fields]) === 'number') {
 				cur[last] = ['=', query[fields]];
-			} else if(query[fields] === '*') {
+			} else if(query[fields] === '') {
 				cur[last] = undefined;
 			} else if(query[fields] === 'NULL') {
 				cur[last] = null;
